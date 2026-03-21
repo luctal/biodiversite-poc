@@ -16,14 +16,6 @@ st.markdown(
     .stApp {{
         background-color: {C_FOND} !important;
     }}
-    .card {{
-        padding: 28px;
-        border-radius: 18px;
-        background: white;
-        border: 1px solid #e9e2d8;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.06);
-        min-height: 220px;
-    }}
     </style>
     """,
     unsafe_allow_html=True
@@ -44,30 +36,42 @@ col1, col2 = st.columns(2)
 
 # -------- CAMÉRA --------
 with col1:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown("### 📷 Module Caméra")
+    st.image("images/chevreuil.jpg", use_container_width=True)
+
+    st.markdown(
+    """
+    <a href="/app_cam" target="_self" style="
+        text-decoration: none;
+        color: black;
+        font-size: 28px;
+        font-weight: bold;
+    ">
+        📷 Module Caméra
+    </a>
+    """,
+    unsafe_allow_html=True
+)
+
     st.write("Analyse des observations issues des caméras pièges.")
     st.write("Richesse, activité, comparaisons inter-sites, diagnostic écologique.")
-    
-    st.page_link(
-        "pages/app_cam.py",
-        label="Ouvrir le module Caméra",
-        icon="📷"
-    )
-    
-    st.markdown("</div>", unsafe_allow_html=True)
 
 # -------- SON --------
 with col2:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown("### 🎧 Module Son")
+    st.image("images/verdier.jpg", use_container_width=True)
+
+    st.markdown(
+    """
+    <a href="/app_son" target="_self" style="
+        text-decoration: none;
+        color: black;
+        font-size: 28px;
+        font-weight: bold;
+    ">
+        🎧 Module Son
+    </a>
+    """,
+    unsafe_allow_html=True
+)
+
     st.write("Analyse des observations acoustiques (BirdNET).")
     st.write("Indices, statistiques, activité, diagnostic écologique.")
-    
-    st.page_link(
-        "pages/app_son.py",
-        label="Ouvrir le module Son",
-        icon="🎧"
-    )
-    
-    st.markdown("</div>", unsafe_allow_html=True)
