@@ -194,6 +194,137 @@ def load_comparison_data():
     except Exception:
         return None
 
+def build_sites_map_figure_simple(df_input, zoom=12):
+    """
+    Construit une carte satellite simple de repérage des hotspots.
+
+    Cette carte est différente de la carte analytique principale :
+    - taille des points fixe
+    - pas de variation selon le nombre de détections
+    - nom du hotspot affiché en permanence
+    - aucune barre latérale de niveau de détection
+
+    Parameters
+    ----------
+    df_input : pd.DataFrame
+        Jeu de données filtré ou non
+    zoom : int or float
+        Niveau de zoom initial
+
+    Returns
+    -------
+    plotly.graph_objects.Figure or None
+        Figure prête à afficher, ou None si les colonnes nécessaires
+        sont absentes
+    """
+    import plotly.graph_objects as go
+
+    # ---------------------------------------------------------
+    # 1. Vérification des colonnes minimales
+    # ---------------------------------------------------------
+    required_cols = {'site', 'latitude', 'longitude'}
+    if not required_cols.issubset(df_input.columns):
+        return None
+
+    # ---------------------------------------------------------
+    # 2. Copie + sécurisation des coordonnées
+    # ---------------------------------------------------------
+    df_map = df_input.copy()
+    df_map['latitude'] = pd.to_numeric(df_map['latitude'], errors='coerce')
+    df_map['longitude'] = pd.to_numeric(df_map['longitude'], errors='coerce')
+
+    # ---------------------------------------------------------
+    # 3. Un seul point par hotspot
+    # ---------------------------------------------------------
+    df_map = (
+        df_map[['site', 'latitude', 'longitude']]
+        .dropna(subset=['site', 'latitude', 'longitude'])
+        .drop_duplicates(subset=['site', 'latitude', 'longitude'])
+    )
+
+    if df_map.empty:
+        return None
+
+    # ---------------------------------------------------------
+    # 4. Création de la figure
+    # ---------------------------------------------------------
+    fig_map = go.Figure()
+
+    # Points fixes
+    fig_map.add_trace(go.Scattermapbox(
+        lat=df_map['latitude'],
+        lon=df_map['longitude'],
+        mode='markers',
+        marker=go.scattermapbox.Marker(
+            size=15,          # taille fixe
+            color=C_ROUGE,    # couleur fixe
+            opacity=0.90
+        ),
+        customdata=df_map[['site']],
+        hovertemplate=(
+            "<b>%{customdata[0]}</b><br>"
+            "Lat : %{lat:.5f}<br>"
+            "Lon : %{lon:.5f}"
+            "<extra></extra>"
+        ),
+        showlegend=False
+    ))
+
+    # Noms affichés en permanence
+    fig_map.add_trace(go.Scattermapbox(
+        lat=df_map['latitude'],
+        lon=df_map['longitude'],
+        mode='text',
+        text=df_map['site'].astype(str),
+        textposition='top right',
+        textfont=dict(
+            size=13,
+            color='white',
+            family='Arial Black'
+        ),
+        hoverinfo='skip',
+        showlegend=False
+    ))
+
+    # Mise en forme
+    fig_map.update_layout(
+        mapbox=dict(
+            style="white-bg",
+            layers=[{
+                "below": "traces",
+                "sourcetype": "raster",
+                "source": [
+                    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                ]
+            }],
+            center=dict(
+                lat=float(df_map['latitude'].mean()),
+                lon=float(df_map['longitude'].mean())
+            ),
+            zoom=zoom
+        ),
+        margin=dict(r=0, t=0, l=0, b=0),
+        height=450,
+        paper_bgcolor=C_FOND,
+        plot_bgcolor=C_FOND
+    )
+
+    return fig_map
+
+def show_sites_map_popover(df_input, label="📍 Voir la carte des sites", zoom=12):
+    """
+    Affiche une carte des sites dans une popover à la demande.
+    """
+    with st.popover(label, use_container_width=False):
+        st.markdown("#### Localisation des sites / hotspots")
+
+        fig_map = build_sites_map_figure_simple(df_input, zoom=zoom)
+
+        if fig_map is None:
+            st.info("Carte indisponible : colonnes 'site', 'latitude' et 'longitude' nécessaires.")
+        else:
+            st.plotly_chart(fig_map, use_container_width=True)
+
 
 # 3. SIDEBAR - CHARGEMENT
 st.sidebar.title("📁 Données")
@@ -212,6 +343,7 @@ st.sidebar.title("⚙️ Paramètres")
 
 min_d, max_d = raw_df['startdate'].min().date(), raw_df['startdate'].max().date()
 dates = st.sidebar.date_input("Période d'analyse :", value=(min_d, max_d), min_value=min_d, max_value=max_d)
+
 
 st.sidebar.caption("🎧 Données acoustiques : espèces considérées comme sauvages par défaut")
 filtre_sauvage = "Toutes"
@@ -238,6 +370,16 @@ if isinstance(dates, tuple) and len(dates) == 2:
     df = df[(df['startdate'].dt.date >= dates[0]) & (df['startdate'].dt.date <= dates[1])]
 
 df_base_date = df.copy()
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("🗺️ Repérage spatial")
+
+with st.sidebar:
+    show_sites_map_popover(
+        df_base_date,
+        label="📍 Voir la carte de repérage",
+        zoom=14
+    )
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 Focus Espèce")
@@ -1271,6 +1413,68 @@ def plot_diurne_nocturne(df_input):
 
     return fig
 
+# =========================================================
+# CALCUL SHANNON HEBDOMADAIRE (UTILISÉ POUR LE DIAGNOSTIC)
+# =========================================================
+def compute_weekly_shannon_distribution(df_input):
+    """
+    Calcule l'indice de Shannon pour chaque site et chaque semaine.
+
+    Objectif :
+    - obtenir une distribution temporelle du Shannon
+    - utilisée ensuite pour :
+        → stabilité écologique (CV)
+        → indice E1C
+
+    Paramètres
+    ----------
+    df_input : DataFrame
+        Dataset filtré contenant :
+        - site
+        - Semaine
+        - vernacular_name
+        - detection_count
+
+    Retour
+    -------
+    DataFrame avec :
+        - site
+        - Semaine
+        - shannon_val
+    """
+
+    # Sécurité : dataset vide
+    if df_input.empty:
+        return pd.DataFrame(columns=['site', 'Semaine', 'shannon_val'])
+
+    # Agrégation des abondances par site × semaine × espèce
+    df_weekly_stats = (
+        df_input.groupby(['site', 'Semaine', 'vernacular_name'])['detection_count']
+        .sum()
+        .reset_index()
+    )
+
+    def compute_shannon(group):
+        """
+        Calcule Shannon pour un groupe (site + semaine).
+        """
+        total = group['detection_count'].sum()
+
+        if total == 0:
+            return 0.0
+
+        p_i = group['detection_count'] / total
+        return float(-1 * (p_i * np.log(p_i + 1e-9)).sum())
+
+    # Calcul final du Shannon hebdomadaire
+    df_dist_shannon = (
+        df_weekly_stats.groupby(['site', 'Semaine'])
+        .apply(compute_shannon, include_groups=False)
+        .reset_index(name='shannon_val')
+    )
+
+    return df_dist_shannon
+
 def compute_indice_e1c(bootstrap_results, df_dist_shannon):
     """
     Calcule l’Indice E1C (Every1Counts), un score écologique global simplifié.
@@ -1425,6 +1629,132 @@ def compute_anthropic_pressure_index(df_input):
     pressure_score = min(max((prop_nuit - 50) / 50, 0), 1)
 
     return float(prop_nuit), float(pressure_score)
+
+def build_sites_map_figure(df_input, zoom=12):
+    """
+    Construit une carte des sites / hotspots à partir du dataframe filtré.
+
+    La fonction :
+    - vérifie la présence des colonnes nécessaires
+    - force latitude / longitude / detection_count en numérique
+    - agrège les détections par site
+    - retourne une figure Plotly exploitable dans n'importe quel onglet
+
+    Parameters
+    ----------
+    df_input : pd.DataFrame
+        Jeu de données courant (filtré ou non)
+    zoom : int or float
+        Niveau de zoom initial de la carte
+
+    Returns
+    -------
+    plotly.graph_objects.Figure or None
+        Figure prête à afficher, ou None si impossible
+    """
+    import plotly.graph_objects as go
+
+    required_cols = {'site', 'latitude', 'longitude'}
+    if not required_cols.issubset(df_input.columns):
+        return None
+
+    df_map = df_input.copy()
+
+    # Sécurisation des types
+    df_map['latitude'] = pd.to_numeric(df_map['latitude'], errors='coerce')
+    df_map['longitude'] = pd.to_numeric(df_map['longitude'], errors='coerce')
+
+    # Si detection_count n'existe pas, chaque ligne vaut 1
+    if 'detection_count' not in df_map.columns:
+        df_map['detection_count'] = 1
+
+    df_map['detection_count'] = pd.to_numeric(df_map['detection_count'], errors='coerce').fillna(1)
+
+    # Agrégation
+    df_map = (
+        df_map[['site', 'latitude', 'longitude', 'detection_count']]
+        .dropna(subset=['site', 'latitude', 'longitude'])
+        .groupby(['site', 'latitude', 'longitude'], as_index=False)['detection_count']
+        .sum()
+    )
+
+    if df_map.empty:
+        return None
+
+    det_min = df_map['detection_count'].min()
+    det_max = df_map['detection_count'].max()
+
+    if det_max == det_min:
+        marker_sizes = np.full(len(df_map), 22)
+    else:
+        marker_sizes = 10 + (df_map['detection_count'] - det_min) / (det_max - det_min) * 28
+
+    fig_map = go.Figure()
+
+    fig_map.add_trace(go.Scattermapbox(
+        lat=df_map['latitude'],
+        lon=df_map['longitude'],
+        mode='markers',
+        marker=go.scattermapbox.Marker(
+            size=marker_sizes,
+            color=df_map['detection_count'],
+            colorscale=[[0, C_ROSE], [1, C_ROUGE]],
+            showscale=True,
+            colorbar=dict(
+                title="Détections",
+                thickness=14,
+                len=0.65,
+                x=0.92
+            ),
+            opacity=0.9
+        ),
+        customdata=df_map[['site', 'detection_count']],
+        hovertemplate=(
+            "<b>%{customdata[0]}</b><br>"
+            "Détections : %{customdata[1]:.0f}<br>"
+            "Lat : %{lat:.5f}<br>"
+            "Lon : %{lon:.5f}"
+            "<extra></extra>"
+        ),
+        showlegend=False
+    ))
+
+    fig_map.add_trace(go.Scattermapbox(
+        lat=df_map['latitude'],
+        lon=df_map['longitude'],
+        mode='text',
+        text=df_map['site'].astype(str),
+        textposition='top right',
+        textfont=dict(size=13, color='white', family='Arial Black'),
+        hoverinfo='skip',
+        showlegend=False
+    ))
+
+    fig_map.update_layout(
+        mapbox=dict(
+            style="white-bg",
+            layers=[{
+                "below": "traces",
+                "sourcetype": "raster",
+                "source": [
+                    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                ]
+            }],
+            center=dict(
+                lat=float(df_map['latitude'].mean()),
+                lon=float(df_map['longitude'].mean())
+            ),
+            zoom=zoom
+        ),
+        margin=dict(r=0, t=0, l=0, b=0),
+        height=420,
+        paper_bgcolor=C_FOND,
+        plot_bgcolor=C_FOND
+    )
+
+    return fig_map
+
+
 
 # 8. CALCULS PRINCIPAUX
 if not df.empty:
@@ -2053,6 +2383,7 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
             st.warning(f"⚠️ **Inventaire incomplet ({score_completude:.1f}%)** : La courbe continue de monter. Une prolongation du suivi est recommandée pour stabiliser les indices.")
 
     # ---------------- TAB DIAGNOSTIC ----------------
+        # ---------------- TAB DIAGNOSTIC ----------------
     with tab_diagnostic:
         st.subheader("🧠 Diagnostic écologique")
 
@@ -2231,7 +2562,6 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
         vigilances = []
         recommandations = []
 
-        # Forces
         if score_e1c >= 70:
             forces.append("Indice E1C élevé, traduisant un fonctionnement écologique globalement favorable.")
         if bootstrap_results and bootstrap_results['H'][0] >= 1.8:
@@ -2245,7 +2575,6 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
         if prop_nuit_diag < 50:
             forces.append("Activité majoritairement diurne, compatible avec une bonne quiétude du site.")
 
-        # Vigilances
         if score_e1c < 50:
             vigilances.append("Indice E1C faible, suggérant un site sous pression ou déséquilibré.")
         if bootstrap_results and bootstrap_results['H'][0] < 1.3:
@@ -2259,22 +2588,16 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
         if prop_nuit_diag >= 70:
             vigilances.append("Nocturnité élevée pouvant traduire un évitement de l'activité humaine diurne.")
 
-        # Recommandations
         if score_e1c < 70:
-            recommandations.append(
-                "Poursuivre le suivi pour confirmer la trajectoire écologique du site dans le temps.")
+            recommandations.append("Poursuivre le suivi pour confirmer la trajectoire écologique du site dans le temps.")
         if dominance_ratio >= 0.60:
-            recommandations.append(
-                "Examiner les conditions de milieu favorisant la sur-dominance de certaines espèces.")
+            recommandations.append("Examiner les conditions de milieu favorisant la sur-dominance de certaines espèces.")
         if pd.notna(cv_shannon) and cv_shannon >= 0.4:
-            recommandations.append(
-                "Analyser les facteurs saisonniers ou de gestion pouvant expliquer l'instabilité observée.")
+            recommandations.append("Analyser les facteurs saisonniers ou de gestion pouvant expliquer l'instabilité observée.")
         if prop_nuit_diag >= 70:
-            recommandations.append(
-                "Évaluer les sources potentielles de dérangement diurne : fréquentation, bruit, travaux, circulation.")
+            recommandations.append("Évaluer les sources potentielles de dérangement diurne : fréquentation, bruit, travaux, circulation.")
         if bootstrap_results and bootstrap_results['H'][0] < 1.3:
-            recommandations.append(
-                "Renforcer la diversité des habitats et la connectivité écologique à l'échelle du site.")
+            recommandations.append("Renforcer la diversité des habitats et la connectivité écologique à l'échelle du site.")
 
         if not forces:
             forces.append("Aucun signal écologique fortement positif ne ressort nettement sur la période considérée.")
@@ -2308,7 +2631,6 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
             "l’équilibre des abondances (Piélou) et la stabilité temporelle "
             "pour fournir une lecture synthétique de la qualité écologique du site."
         )
-
     # ---------------- TAB EXPORT ----------------
     with tab_export:
         st.subheader("📥 Exploration et Export des données")

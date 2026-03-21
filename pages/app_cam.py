@@ -246,6 +246,136 @@ def load_comparison_data():
     except Exception:
         return None
 
+def build_sites_map_figure_simple(df_input, zoom=12):
+    """
+    Construit une carte satellite simple de repérage des hotspots.
+
+    Cette carte est différente de la carte analytique principale :
+    - taille des points fixe
+    - pas de variation selon le nombre de détections
+    - nom du hotspot affiché en permanence
+    - aucune barre latérale de niveau de détection
+
+    Parameters
+    ----------
+    df_input : pd.DataFrame
+        Jeu de données filtré ou non
+    zoom : int or float
+        Niveau de zoom initial
+
+    Returns
+    -------
+    plotly.graph_objects.Figure or None
+        Figure prête à afficher, ou None si les colonnes nécessaires
+        sont absentes
+    """
+    import plotly.graph_objects as go
+
+    # ---------------------------------------------------------
+    # 1. Vérification des colonnes minimales
+    # ---------------------------------------------------------
+    required_cols = {'site', 'latitude', 'longitude'}
+    if not required_cols.issubset(df_input.columns):
+        return None
+
+    # ---------------------------------------------------------
+    # 2. Copie + sécurisation des coordonnées
+    # ---------------------------------------------------------
+    df_map = df_input.copy()
+    df_map['latitude'] = pd.to_numeric(df_map['latitude'], errors='coerce')
+    df_map['longitude'] = pd.to_numeric(df_map['longitude'], errors='coerce')
+
+    # ---------------------------------------------------------
+    # 3. Un seul point par hotspot
+    # ---------------------------------------------------------
+    df_map = (
+        df_map[['site', 'latitude', 'longitude']]
+        .dropna(subset=['site', 'latitude', 'longitude'])
+        .drop_duplicates(subset=['site', 'latitude', 'longitude'])
+    )
+
+    if df_map.empty:
+        return None
+
+    # ---------------------------------------------------------
+    # 4. Création de la figure
+    # ---------------------------------------------------------
+    fig_map = go.Figure()
+
+    # Points fixes
+    fig_map.add_trace(go.Scattermapbox(
+        lat=df_map['latitude'],
+        lon=df_map['longitude'],
+        mode='markers',
+        marker=go.scattermapbox.Marker(
+            size=15,          # taille fixe
+            color=C_ROUGE,    # couleur fixe
+            opacity=0.90
+        ),
+        customdata=df_map[['site']],
+        hovertemplate=(
+            "<b>%{customdata[0]}</b><br>"
+            "Lat : %{lat:.5f}<br>"
+            "Lon : %{lon:.5f}"
+            "<extra></extra>"
+        ),
+        showlegend=False
+    ))
+
+    # Noms affichés en permanence
+    fig_map.add_trace(go.Scattermapbox(
+        lat=df_map['latitude'],
+        lon=df_map['longitude'],
+        mode='text',
+        text=df_map['site'].astype(str),
+        textposition='top right',
+        textfont=dict(
+            size=13,
+            color='white',
+            family='Arial Black'
+        ),
+        hoverinfo='skip',
+        showlegend=False
+    ))
+
+    # Mise en forme
+    fig_map.update_layout(
+        mapbox=dict(
+            style="white-bg",
+            layers=[{
+                "below": "traces",
+                "sourcetype": "raster",
+                "source": [
+                    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                ]
+            }],
+            center=dict(
+                lat=float(df_map['latitude'].mean()),
+                lon=float(df_map['longitude'].mean())
+            ),
+            zoom=zoom
+        ),
+        margin=dict(r=0, t=0, l=0, b=0),
+        height=450,
+        paper_bgcolor=C_FOND,
+        plot_bgcolor=C_FOND
+    )
+
+    return fig_map
+
+def show_sites_map_popover(df_input, label="📍 Voir la carte des sites", zoom=12):
+    """
+    Affiche la carte simple de repérage des sites dans une popover.
+    """
+    with st.popover(label, use_container_width=False):
+        st.markdown("#### Localisation des sites / hotspots")
+
+        fig_map = build_sites_map_figure_simple(df_input, zoom=zoom)
+
+        if fig_map is None:
+            st.info("Carte indisponible : colonnes 'site', 'latitude' et 'longitude' nécessaires.")
+        else:
+            st.plotly_chart(fig_map, use_container_width=True)
 
 # 3. SIDEBAR - CHARGEMENT
 st.sidebar.title("📁 Données")
@@ -275,6 +405,16 @@ if isinstance(dates, tuple) and len(dates) == 2:
     df = df[(df['startdate'].dt.date >= dates[0]) & (df['startdate'].dt.date <= dates[1])]
 
 df_base_date = df.copy()
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("🗺️ Repérage spatial")
+
+with st.sidebar:
+    show_sites_map_popover(
+        df_base_date,
+        label="📍 Voir la carte de repérage",
+        zoom=14
+    )
 
 if filtre_sauvage == "Sauvages uniquement":
     df = df[~df['vernacular_name'].isin(domestiques)]
@@ -1725,6 +1865,112 @@ def classify_e1c(score_e1c):
         return "Intermédiaire (type Lavallière)"
     else:
         return "Faible (type Etréchy)"
+
+def build_sites_map_figure(df_input, zoom=12):
+    """
+    Construit une carte des sites / hotspots à partir du dataframe filtré.
+
+    La fonction :
+    - vérifie la présence des colonnes nécessaires
+    - force latitude / longitude / detection_count en numérique
+    - agrège les détections par site
+    - retourne une figure Plotly exploitable dans n'importe quel onglet
+
+    Parameters
+    ----------
+    df_input : pd.DataFrame
+        Jeu de données courant (filtré ou non)
+    zoom : int or float
+        Niveau de zoom initial de la carte
+
+    Returns
+    -------
+    plotly.graph_objects.Figure or None
+        Figure prête à afficher, ou None si impossible
+    """
+    import plotly.graph_objects as go
+
+    required_cols = {'site', 'latitude', 'longitude'}
+    if not required_cols.issubset(df_input.columns):
+        return None
+
+    df_map = df_input.copy()
+
+    # Sécurisation des types
+    df_map['latitude'] = pd.to_numeric(df_map['latitude'], errors='coerce')
+    df_map['longitude'] = pd.to_numeric(df_map['longitude'], errors='coerce')
+
+    # Si detection_count n'existe pas, chaque ligne vaut 1
+    if 'detection_count' not in df_map.columns:
+        df_map['detection_count'] = 1
+
+    df_map['detection_count'] = pd.to_numeric(df_map['detection_count'], errors='coerce').fillna(1)
+
+    # Agrégation
+    df_map = (
+        df_map[['site', 'latitude', 'longitude', 'detection_count']]
+        .dropna(subset=['site', 'latitude', 'longitude'])
+        .groupby(['site', 'latitude', 'longitude'], as_index=False)['detection_count']
+        .sum()
+    )
+
+    if df_map.empty:
+        return None
+
+    det_min = df_map['detection_count'].min()
+    det_max = df_map['detection_count'].max()
+
+    if det_max == det_min:
+        marker_sizes = np.full(len(df_map), 22)
+    else:
+        marker_sizes = 10 + (df_map['detection_count'] - det_min) / (det_max - det_min) * 28
+
+    fig_map = go.Figure()
+
+    fig_map.add_trace(go.Scattermapbox(
+    lat=df_map['latitude'],
+    lon=df_map['longitude'],
+    mode='markers+text',
+    text=df_map['site'].astype(str),
+    textposition='top center',
+    textfont=dict(
+        size=14,
+        color='white',
+        family='Arial Black'
+    ),
+    marker=go.scattermapbox.Marker(
+        size=15,
+        color=C_ROUGE,
+        opacity=0.90
+    ),
+    customdata=df_map[['site']],
+    hovertemplate=(
+        "<b>%{customdata[0]}</b><br>"
+        "Lat : %{lat:.5f}<br>"
+        "Lon : %{lon:.5f}"
+        "<extra></extra>"
+    ),
+    showlegend=False
+))
+
+    fig_map.update_layout(
+        mapbox=dict(
+    style="carto-positron",
+            center=dict(
+                lat=float(df_map['latitude'].mean()),
+                lon=float(df_map['longitude'].mean())
+            ),
+            zoom=zoom
+        ),
+        margin=dict(r=0, t=0, l=0, b=0),
+        height=420,
+        paper_bgcolor=C_FOND,
+        plot_bgcolor=C_FOND
+    )
+
+    return fig_map
+
+
 
 # 8. CALCULS PRINCIPAUX
 if not df.empty:
