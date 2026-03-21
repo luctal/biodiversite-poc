@@ -1,0 +1,20 @@
+CAMERA;;;;;;;;;;
+Site;type espŠce;date d‚but;date de fin;richesse (S);Shannon;Simpson (1/D);Pi‚lou;IAJC (Indice d'Activit‚ par Jour-Cam‚ra);m‚thode ;date
+Boston;toutes;07/04/2025;23/02/2026;32 +/- 2;2.32 +/-0,04;7.4 +/-0.4;0.67 +/-0.01;[3,00 - 3,75];bootsrap 1000 data et 400 tirages (500 data pour IAJC) Gemini;10/03/2026
+Boston;sauvages;07/04/2025;23/02/2026;28 +/- 2;2.07 +/-0.04;4,8 +/-0,3;0.62 +/- 0.01;[0,97 - 1,16];bootsrap 1000 data et 400 tirages (500 data pour IAJC) Gemini;10/03/2026
+Etrechy;toutes;13/07/2024;13/07/2025;13+/-1;1.07+/-0.04;1,85 +/-0.06;0.41+/-0.02;[1,88 - 1,96];bootsrap 1000 data et 400 tirages (500 data pour IAJC) Gemini;10/03/2026
+Etrechy;sauvages;13/07/2024;13/07/2025;13,9+/-0.3;1,76+/-0.03;4.0 +/-0.2;0.67 +/-0.01;;bootsrap 1000 data et 400 tirages (500 data pour IAJC) Gemini;10/03/2026
+LavalliŠre;toutes;13/01/2025;13/01/2026;21+/-1;1,79+/-0.04;4.0+/-0,2;0,59+/-0.01;[2,07 - 2,39];bootsrap 1000 data et 400 tirages (500 data pour IAJC) Gemini;10/03/2026
+LavalliŠre;sauvages;13/01/2025;13/01/2026;19+/-1;1,73+/-0.04;3,8+/-0,2;0,58+/-0.01;;bootsrap 1000 data et 400 tirages (500 data pour IAJC) Gemini;10/03/2026
+La Peyruche;toutes;19/11/2024;19/11/2025;27+/-2;1.88+/-0.04;4.7+/-0.2;0.57+/-001;[1,26 - 1,46];bootsrap 1000 data et 400 tirages (500 data pour IAJC) Gemini;10/03/2026
+La Peyruche;sauvages;19/11/2024;19/11/2025;25+/-2;1.63+/-0.04;3.6+/-0.1;0.57/-0.01;;bootsrap 1000 data et 400 tirages (500 data pour IAJC) Gemini;10/03/2026
+Purcari;totues;29/05/2025;23/01/2026;25+/-1;2.40+/-0.04;8.5+/-0.5;0.75+/60.02;[0,66 - 0,99];bootsrap 1000 data et 400 tirages (500 data pour IAJC) Gemini;10/03/2026
+Purcari;sauvages;29/05/2025;23/01/2026;22+/-1;2.30+/-0.04;7.8+/-0.4;0.74+/-0.02;;bootsrap 1000 data et 400 tirages (500 data pour IAJC) Gemini;10/03/2026
+;;;;;;;;;;
+;;;;;;;;;;
+;;;;;;;;;;date
+SON;;;;richesse (S);IAJ (chants par jour-capteur;;;;;13/03/2026
+Boston;;07/04/2025;23/02/2026;156;16,84 +/-0,45;;;;;13/03/2026
+Etrechy;;13/07/2024;13/07/2025;108;35,72+/-0,95;;;;;13/03/2026
+LavalliŠre;;13/01/2025;13/01/2026;110;31,81+/-0,79;;;;;13/03/2026
+La Peyruche;;19/11/2024;19/11/2025;143;16,56+/-0,26;;;;;13/03/2026
