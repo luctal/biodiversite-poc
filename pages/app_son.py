@@ -415,16 +415,91 @@ def show_sites_map_popover(df_input, label="📍 Voir la carte des sites", zoom=
         else:
             st.plotly_chart(fig_map, use_container_width=True)
 
+# =========================================================
+# POPUP DE CHARGEMENT DES DONNÉES
+# =========================================================
+
+DEMO_FILE_SON = "datasets/son_demo.csv"
+
+if "raw_df_loaded_son" not in st.session_state:
+    st.session_state.raw_df_loaded_son = None
+
+if "df_bench_loaded_son" not in st.session_state:
+    st.session_state.df_bench_loaded_son = None
+
+if "dataset_name_loaded_son" not in st.session_state:
+    st.session_state.dataset_name_loaded_son = None
+
+
+@st.dialog("Choisir un dataset CSV")
+def open_dataset_dialog():
+    st.markdown("### Source de données")
+    st.write("Choisissez soit la démo intégrée, soit un fichier CSV de votre ordinateur.")
+
+    col1, col2 = st.columns(2)
+
+    # ---------------------------------------------------------
+    # OPTION 1 : LANCER LA DÉMO
+    # ---------------------------------------------------------
+    with col1:
+        st.markdown("#### Démo")
+        st.caption("Charge automatiquement le fichier de démonstration son.")
+
+        if st.button("Lancer la démo", use_container_width=True, key="launch_demo_son"):
+            try:
+                raw_df = load_data(DEMO_FILE_SON)
+                df_bench = load_comparison_data()
+
+                st.session_state.raw_df_loaded_son = raw_df
+                st.session_state.df_bench_loaded_son = df_bench
+                st.session_state.dataset_name_loaded_son = "son_demo.csv"
+
+                st.rerun()
+
+            except Exception as e:
+                st.error(f"Erreur lors du chargement de la démo : {e}")
+
+    # ---------------------------------------------------------
+    # OPTION 2 : TÉLÉCHARGER / IMPORTER UN CSV
+    # ---------------------------------------------------------
+    with col2:
+        st.markdown("#### Télécharger")
+        st.caption("Choisissez un fichier CSV sur votre ordinateur.")
+
+        uploaded_file_popup = st.file_uploader(
+            "Sélectionner un CSV",
+            type=["csv"],
+            key="sidebar_popup_uploader_son"
+        )
+
+        if uploaded_file_popup is not None:
+            try:
+                raw_df = load_data(uploaded_file_popup)
+                df_bench = load_comparison_data()
+
+                st.session_state.raw_df_loaded_son = raw_df
+                st.session_state.df_bench_loaded_son = df_bench
+                st.session_state.dataset_name_loaded_son = uploaded_file_popup.name
+
+                st.rerun()
+
+            except Exception as e:
+                st.error(f"Erreur lors du chargement du fichier : {e}")
 
 # 3. SIDEBAR - CHARGEMENT
 st.sidebar.title("📁 Données")
-uploaded_file = st.sidebar.file_uploader("Charger un dataset CSV", type=["csv"])
 
-if uploaded_file is not None:
-    raw_df = load_data(uploaded_file)
-    df_bench = load_comparison_data()
+if st.sidebar.button("Charger un dataset CSV", use_container_width=True):
+    open_dataset_dialog()
+
+if st.session_state.dataset_name_loaded_son is not None:
+    st.sidebar.success(f"Dataset actif : {st.session_state.dataset_name_loaded_son}")
+
+if st.session_state.raw_df_loaded_son is not None:
+    raw_df = st.session_state.raw_df_loaded_son
+    df_bench = st.session_state.df_bench_loaded_son
 else:
-    st.info("👋 Veuillez charger un fichier CSV dans la barre latérale pour commencer l'analyse.")
+    st.info("👋 Veuillez charger un fichier CSV ou lancer la démo pour commencer l'analyse.")
     st.stop()
 
 
