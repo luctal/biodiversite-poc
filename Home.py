@@ -116,7 +116,7 @@ col3, col4 = st.columns(2)
 
 # -------- CHAUVES-SOURIS --------
 with col3:
-    bat_img_path = "images/pipit.jpg"
+    bat_img_path = "images/pipit.JPG"
 
     if os.path.exists(bat_img_path):
         clickable_image(bat_img_path, "/app_bat", "Module Chauves-souris")
