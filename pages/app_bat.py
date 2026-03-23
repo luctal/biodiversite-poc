@@ -6,7 +6,6 @@ import numpy as np
 import scikit_posthocs as sp
 import scipy.stats as scipy_stats
 import io
-import json
 
 from statsmodels.stats.multicomp import pairwise_tukeyhsd, MultiComparison
 
@@ -15,60 +14,9 @@ from statsmodels.stats.multicomp import pairwise_tukeyhsd, MultiComparison
 # =========================================================
 
 BOOTSTRAP_CONFIG = {
-    "n_samples": 1000,      # taille de l’échantillon tiré à chaque itération
+    "n_samples": 5000,      # taille de l’échantillon tiré à chaque itération
     "n_iterations": 400,    # nombre de répétitions bootstrap
     "iajc_iterations": 400  # spécifique IAJC (peut être différent si besoin)
-}
-
-# =========================================================
-# RÉFÉRENCES TERRAIN - INDICE E1C CAMÉRA
-
-# =========================================================
-
-E1C_REFERENCE = {
-    "Shannon": {
-        "min": 1.0,   # Diane
-        "mid": 1.36,   # Etrechy
-        "good": 1.88,  # La Peyruche
-        "max": 2.45    # Purcari
-    },
-    "Pielou": {
-        "min": 0.38,   # Diane
-        "mid": 0.57,   # La Peyruche
-        "good": 0.67,  # Boston
-        "max": 0.76    # Purcari
-    },
-    "Simpson": {
-        "min": 2.1,   # Castries
-        "mid": 3.9,    # Lavallière
-        "good": 4.7,   # La Peyruche
-        "max": 9.1     # Purcari
-    }
-}
-
-# Pondérations de l'indice E1C
-E1C_WEIGHTS = {
-    "Shannon": 0.31,
-    "Pielou": 0.12,
-    "Stabilite": 0.19,
-    "Simpson": 0.38
-}
-
-# Seuils de lecture du score E1C
-E1C_THRESHOLDS = {
-    "low": 40,
-    "medium": 60,
-    "high": 80
-}
-
-# Seuils de lecture complémentaires du diagnostic
-DIAG_THRESHOLDS = {
-    "dominance_good": 0.50,
-    "dominance_medium": 0.70,
-    "cv_stable": 0.30,
-    "cv_medium": 0.50,
-    "nocturnite_low": 50,
-    "nocturnite_medium": 70
 }
 
 # --- LÉGENDE DES SITES DE RÉFÉRENCE ---
@@ -79,30 +27,84 @@ LEGENDE_SITES = (
     "LP = La Peyruche (vignoble bio)"
 )
 
-# --- CONFIGURATION DES RÉFÉRENCES ÉCOLOGIQUES ---
+# =========================================================
+# RÉFÉRENCES TERRAIN - INDICE E1C SON
+# Calibration V1 basée sur 4 sites de référence
+# - Etréchy    = bas
+# - Lavallière = intermédiaire
+# - La Peyruche = excellent
+# - Purcari    = bon
+# =========================================================
+E1C_REFERENCE_SOUND = {
+    "Shannon": {
+        "min": 1,   # pas encore observé
+        "mid": 2,   # pas encore observé
+        "good": 3,  # pas encore observé
+        "max": 3.8    # pas encore observé
+    },
+    "Pielou": {
+        "min": 0.5,
+        "mid": 0.6,
+        "good": 0.7,
+        "max": 0.8
+    },
+    "Simpson": {
+        "min": 2,
+        "mid": 5,
+        "good": 8,
+        "max": 10
+    }
+}
 
-#@st.cache_data
-def load_references_indices():
-    """
-    Charge les références écologiques depuis un fichier JSON.
-    """
-    path = "datasets/references_indices_cam.json"
+E1C_WEIGHTS_SOUND = {
+    "Shannon": 0.18,
+    "Pielou": 0.05,
+    "Stabilite": 0.45,
+    "Simpson": 0.32
+}
+
+E1C_THRESHOLDS_SOUND = {
+    "low": 40,
+    "medium": 60,
+    "high": 80
+}
+
+DIAG_THRESHOLDS_SOUND = {
+    "dominance_good": 0.50,
+    "dominance_medium": 0.70,
+    "cv_stable": 0.30,
+    "cv_medium": 0.50,
+    "nocturnite_low": 50,
+    "nocturnite_medium": 70
+}
+
+
+# =========================================================
+# CHARGEMENT DES DONNEES DE REFERENCE
+# =========================================================
+
+def load_references_indices(path):
+    import json
 
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        # Ignore les éventuels champs de méta/commentaire
+        # Ignore _comment
         data = {k: v for k, v in data.items() if not str(k).startswith("_")}
 
         return data
 
     except Exception as e:
-        st.error(f"Impossible de charger le fichier de références : {e}")
+        st.error(f"Erreur chargement références : {e}")
         st.stop()
 
 
-REFERENCES_INDICES = load_references_indices()
+# 👇 IMPORTANT : EN DEHORS DE LA FONCTION
+REFERENCES_INDICES = load_references_indices(
+    "datasets/references_indices_bat.json"
+)
+         
 
 
 # 1. CONFIGURATION DE LA PAGE
@@ -125,8 +127,6 @@ PALETTE_ESPECES = [C_VERT_SOMBRE, C_VERT_CLAIR, C_JAUNE, C_BLEU, C_VIOLET, C_ROU
 
 st.markdown(f"<style>.stApp {{ background-color: {C_FOND} !important; }}</style>", unsafe_allow_html=True)
 
-
-
 # =========================================================
 # FONCTIONS CACHÉES (PERFORMANCE)
 # =========================================================
@@ -146,57 +146,6 @@ def compute_bootstrap_iajc(df_in, n_iterations):
         n_iterations=n_iterations
     )
 
-@st.cache_data
-def compute_weekly_shannon_distribution(df_input):
-    """
-    Calcule la distribution hebdomadaire de l'indice de Shannon.
-
-    Cette fonction sert notamment à :
-    - mesurer la stabilité temporelle
-    - alimenter le diagnostic écologique
-    - éviter de recalculer plusieurs fois la même logique
-      dans différents onglets
-
-    Principe :
-    1. on agrège les détections par site / semaine / espèce
-    2. on calcule Shannon pour chaque couple (site, semaine)
-    """
-    # ---------------------------------------------------------
-    # 1. Garde-fou : dataset vide ou absent
-    # ---------------------------------------------------------
-    if df_input is None or df_input.empty:
-        return pd.DataFrame(columns=['site', 'week_id', 'shannon_val'])
-
-    # ---------------------------------------------------------
-    # 2. Agrégation hebdomadaire des abondances par espèce
-    # ---------------------------------------------------------
-    df_weekly_stats = df_input.groupby(
-        ['site', 'week_id', 'vernacular_name']
-    )['detection_count'].sum().reset_index()
-
-    # ---------------------------------------------------------
-    # 3. Fonction locale de calcul de Shannon
-    # ---------------------------------------------------------
-    def compute_shannon(group):
-        total = group['detection_count'].sum()
-
-        if total == 0:
-            return 0.0
-
-        p_i = group['detection_count'] / total
-        return float(-1 * (p_i * np.log(p_i + 1e-9)).sum())
-
-    # ---------------------------------------------------------
-    # 4. Calcul du Shannon par site et par semaine
-    # ---------------------------------------------------------
-    df_dist_shannon = df_weekly_stats.groupby(
-        ['site', 'week_id']
-    ).apply(
-        compute_shannon,
-        include_groups=False
-    ).reset_index(name='shannon_val')
-
-    return df_dist_shannon
 
 # 2. FONCTIONS DE CHARGEMENT
 @st.cache_data
@@ -212,6 +161,7 @@ def load_data(uploaded_file):
     - définir UNE logique temporelle commune pour tout le dashboard
     """
     df = pd.read_csv(uploaded_file, sep=None, engine='python')
+
 
 
     # ---------------------------------------------------------
@@ -230,6 +180,7 @@ def load_data(uploaded_file):
         'Common_name': 'vernacular_name',
         'Common name': 'vernacular_name',
         'vernacular_name': 'vernacular_name',
+        'NomFR': 'vernacular_name',
 
         'Nom scientifique': 'scientific_name',
         'Scientific name': 'scientific_name',
@@ -238,7 +189,12 @@ def load_data(uploaded_file):
 
         'Hotspot': 'site',
         'Site': 'site',
-        'site': 'site'
+        'site': 'site',
+
+        'Date': 'startdate',
+
+        'Indice de confiance BirdNet': 'Birdnet_confidence_index'
+        
     }
 
     df = df.rename(columns=mapping)
@@ -450,7 +406,7 @@ def build_sites_map_figure_simple(df_input, zoom=12):
 
 def show_sites_map_popover(df_input, label="📍 Voir la carte des sites", zoom=12):
     """
-    Affiche la carte simple de repérage des sites dans une popover.
+    Affiche une carte des sites dans une popover à la demande.
     """
     with st.popover(label, use_container_width=False):
         st.markdown("#### Localisation des sites / hotspots")
@@ -462,15 +418,91 @@ def show_sites_map_popover(df_input, label="📍 Voir la carte des sites", zoom=
         else:
             st.plotly_chart(fig_map, use_container_width=True)
 
+# =========================================================
+# POPUP DE CHARGEMENT DES DONNÉES
+# =========================================================
+
+DEMO_FILE_SON = "datasets/bat_demo.csv"
+
+if "raw_df_loaded_son" not in st.session_state:
+    st.session_state.raw_df_loaded_son = None
+
+if "df_bench_loaded_son" not in st.session_state:
+    st.session_state.df_bench_loaded_son = None
+
+if "dataset_name_loaded_son" not in st.session_state:
+    st.session_state.dataset_name_loaded_son = None
+
+
+@st.dialog("Choisir un dataset CSV")
+def open_dataset_dialog():
+    st.markdown("### Source de données")
+    st.write("Choisissez soit la démo intégrée, soit un fichier CSV de votre ordinateur.")
+
+    col1, col2 = st.columns(2)
+
+    # ---------------------------------------------------------
+    # OPTION 1 : LANCER LA DÉMO
+    # ---------------------------------------------------------
+    with col1:
+        st.markdown("#### Démo")
+        st.caption("Charge automatiquement le fichier de démonstration son.")
+
+        if st.button("Lancer la démo", use_container_width=True, key="launch_demo_son"):
+            try:
+                raw_df = load_data(DEMO_FILE_SON)
+                df_bench = load_comparison_data()
+
+                st.session_state.raw_df_loaded_son = raw_df
+                st.session_state.df_bench_loaded_son = df_bench
+                st.session_state.dataset_name_loaded_son = "bat_demo.csv"
+
+                st.rerun()
+
+            except Exception as e:
+                st.error(f"Erreur lors du chargement de la démo : {e}")
+
+    # ---------------------------------------------------------
+    # OPTION 2 : TÉLÉCHARGER / IMPORTER UN CSV
+    # ---------------------------------------------------------
+    with col2:
+        st.markdown("#### Télécharger")
+        st.caption("Choisissez un fichier CSV sur votre ordinateur.")
+
+        uploaded_file_popup = st.file_uploader(
+            "Sélectionner un CSV",
+            type=["csv"],
+            key="sidebar_popup_uploader_son"
+        )
+
+        if uploaded_file_popup is not None:
+            try:
+                raw_df = load_data(uploaded_file_popup)
+                df_bench = load_comparison_data()
+
+                st.session_state.raw_df_loaded_son = raw_df
+                st.session_state.df_bench_loaded_son = df_bench
+                st.session_state.dataset_name_loaded_son = uploaded_file_popup.name
+
+                st.rerun()
+
+            except Exception as e:
+                st.error(f"Erreur lors du chargement du fichier : {e}")
+
 # 3. SIDEBAR - CHARGEMENT
 st.sidebar.title("📁 Données")
-uploaded_file = st.sidebar.file_uploader("Charger un dataset CSV", type=["csv"])
 
-if uploaded_file is not None:
-    raw_df = load_data(uploaded_file)
-    df_bench = load_comparison_data()
+if st.sidebar.button("Charger un dataset CSV", use_container_width=True):
+    open_dataset_dialog()
+
+if st.session_state.dataset_name_loaded_son is not None:
+    st.sidebar.success(f"Dataset actif : {st.session_state.dataset_name_loaded_son}")
+
+if st.session_state.raw_df_loaded_son is not None:
+    raw_df = st.session_state.raw_df_loaded_son
+    df_bench = st.session_state.df_bench_loaded_son
 else:
-    st.info("👋 Veuillez charger un fichier CSV dans la barre latérale pour commencer l'analyse.")
+    st.info("👋 Veuillez charger un fichier CSV ou lancer la démo pour commencer l'analyse.")
     st.stop()
 
 
@@ -480,11 +512,18 @@ st.sidebar.title("⚙️ Paramètres")
 min_d, max_d = raw_df['startdate'].min().date(), raw_df['startdate'].max().date()
 dates = st.sidebar.date_input("Période d'analyse :", value=(min_d, max_d), min_value=min_d, max_value=max_d)
 
-filtre_sauvage = st.sidebar.radio("Type d'espèces :", ["Toutes", "Sauvages uniquement"])
-domestiques = ["Vache", "Cheval", "Chien", "Chat", "Mouton", "Cochon", "Âne", "Chèvre", "Chevre", "chèvre"]
+
+st.sidebar.caption("🎧 Données acoustiques : espèces considérées comme sauvages par défaut")
+filtre_sauvage = "Toutes"
+
 
 # 5. APPLICATION DES FILTRES
 df = raw_df.copy()
+
+# Filtre sur la confiance BirdNET (si disponible)
+if 'Birdnet_confidence_index' in df.columns:
+    df['Birdnet_confidence_index'] = pd.to_numeric(df['Birdnet_confidence_index'], errors='coerce')
+    df = df[df['Birdnet_confidence_index'] >= seuil_confiance]
 
 if isinstance(dates, tuple) and len(dates) == 2:
     df = df[(df['startdate'].dt.date >= dates[0]) & (df['startdate'].dt.date <= dates[1])]
@@ -500,9 +539,6 @@ with st.sidebar:
         label="📍 Voir la carte de repérage",
         zoom=14
     )
-
-if filtre_sauvage == "Sauvages uniquement":
-    df = df[~df['vernacular_name'].isin(domestiques)]
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 Focus Espèce")
@@ -529,7 +565,14 @@ def bootstrap_stats(data, n_samples=1000, n_iterations=400):
 
     for _ in range(n_iterations):
         sample = data.sample(n=n_samples, replace=True)
-        abundance = sample.groupby('vernacular_name')['detection_count'].sum()
+
+        # Si detection_count existe, on l'utilise.
+        # Sinon, chaque ligne compte pour 1 observation.
+        if 'detection_count' in sample.columns:
+            abundance = sample.groupby('vernacular_name')['detection_count'].sum()
+        else:
+            abundance = sample.groupby('vernacular_name').size()
+
         pi = abundance / abundance.sum()
         s_v = len(abundance)
         h_v = -1 * (pi * np.log(pi + 1e-9)).sum()
@@ -1112,7 +1155,8 @@ def plot_tukey_shannon(df_input):
 
     import plotly.graph_objects as go
 
-    # ---------------------------------------------------------
+
+     # ---------------------------------------------------------
     # 1. Préparation des données
     # ---------------------------------------------------------
     # On n'utilise plus Annee + Semaine ISO séparées,
@@ -1271,16 +1315,16 @@ def plot_kruskal_shannon(df_input):
     # ---------------------------------------------------------
     # 1. Préparation temporelle
     # ---------------------------------------------------------
-    # On utilise week_id, colonne standardisée créée dans load_data(),
-    # au lieu de l'ancienne logique Annee + Semaine.
+    # On s'aligne sur week_id, identifiant hebdomadaire
+    # standardisé créé dès le chargement des données.
     # ---------------------------------------------------------
     df_temp = df_input.copy()
 
     # ---------------------------------------------------------
     # 2. Fonction locale de calcul de Shannon
     # ---------------------------------------------------------
-    # On travaille sur les abondances par espèce à l'intérieur
-    # de chaque site-semaine.
+    # Ici on travaille bien sur les abondances par espèce
+    # et non sur un simple value_counts() brut.
     # ---------------------------------------------------------
     def calc_shannon_from_counts(group):
         counts = group.groupby('vernacular_name')['detection_count'].sum()
@@ -1288,106 +1332,11 @@ def plot_kruskal_shannon(df_input):
         return -np.sum(probs * np.log(probs + 1e-9))
 
     # ---------------------------------------------------------
-    # 3. Calcul de Shannon par site / semaine
+    # 3. Calcul du Shannon par site et par semaine
     # ---------------------------------------------------------
     df_stats = df_temp.groupby(['site', 'week_id']).apply(
-        calc_shannon_from_counts,
-        include_groups=False
+        calc_shannon_from_counts
     ).reset_index(name='shannon')
-
-    # ---------------------------------------------------------
-    # 4. Garde-fou : au moins 2 semaines par site
-    # ---------------------------------------------------------
-    counts_per_site = df_stats.groupby('site').size()
-    valid_sites = counts_per_site[counts_per_site >= 2].index.tolist()
-    df_stats = df_stats[df_stats['site'].isin(valid_sites)].copy()
-
-    # Si moins de 2 sites valides, impossible de comparer
-    if df_stats['site'].nunique() < 2:
-        fig = px.box()
-        fig.update_layout(
-            paper_bgcolor=C_FOND,
-            plot_bgcolor=C_FOND,
-            title="Pas assez de données pour Kruskal-Wallis"
-        )
-        return 1.0, {}, fig
-
-    # ---------------------------------------------------------
-    # 5. Ordre des sites : médiane décroissante
-    # ---------------------------------------------------------
-    order = df_stats.groupby('site')['shannon'].median().sort_values(ascending=False).index.tolist()
-
-    # ---------------------------------------------------------
-    # 6. Test global de Kruskal-Wallis
-    # ---------------------------------------------------------
-    stat_kw, p_global = scipy_stats.kruskal(
-        *[g['shannon'].values for _, g in df_stats.groupby('site')]
-    )
-
-    # ---------------------------------------------------------
-    # 7. Si le test global est significatif :
-    #    post-hoc de Dunn avec correction Bonferroni
-    # ---------------------------------------------------------
-    if p_global < 0.05:
-        p_matrix = sp.posthoc_dunn(
-            df_stats,
-            val_col='shannon',
-            group_col='site',
-            p_adjust='bonferroni'
-        )
-
-        sig_pairs = set()
-
-        for i, g1 in enumerate(order):
-            for g2 in order[i + 1:]:
-                pval = p_matrix.loc[g1, g2]
-                if pval < 0.05:
-                    sig_pairs.add(tuple(sorted((g1, g2))))
-
-        nonsig_matrix = build_nonsignificance_matrix(order, sig_pairs)
-        letters = compact_letter_display_from_nonsig(order, nonsig_matrix)
-
-    else:
-        # Si le test global n'est pas significatif,
-        # tout le monde partage la même lettre
-        letters = {site: "A" for site in order}
-
-    # ---------------------------------------------------------
-    # 8. Construction du boxplot
-    # ---------------------------------------------------------
-    fig = px.box(
-        df_stats,
-        x='site',
-        y='shannon',
-        color='site',
-        category_orders={"site": order},
-        points="all"
-    )
-
-    fig.update_traces(marker_color=C_VERT_SOMBRE)
-
-    # ---------------------------------------------------------
-    # 9. Ajout des lettres au-dessus des boîtes
-    # ---------------------------------------------------------
-    for site in order:
-        y_max = df_stats[df_stats['site'] == site]['shannon'].max()
-
-        fig.add_annotation(
-            x=site,
-            y=y_max * 1.12,
-            text=f"<b>{letters[site]}</b>",
-            showarrow=False,
-            font=dict(color=C_ROUGE, size=18)
-        )
-
-    fig.update_layout(
-        paper_bgcolor=C_FOND,
-        plot_bgcolor=C_FOND,
-        showlegend=False,
-        yaxis_title="Shannon (H') par semaine"
-    )
-
-    return p_global, letters, fig
 
     # ---------------------------------------------------------
     # 3. Garde-fou : au moins 2 semaines par site
@@ -1625,79 +1574,63 @@ def plot_diurne_nocturne(df_input):
 
     return fig
 
-def compute_indice_e1c(bootstrap_results, df_dist_shannon):
+# =========================================================
+# CALCUL SHANNON HEBDOMADAIRE (UTILISÉ POUR LE DIAGNOSTIC)
+# =========================================================
+@st.cache_data
+def compute_weekly_shannon_distribution(df_input):
     """
-    Calcule l’Indice E1C (Every1Counts), un score écologique global simplifié.
+    Calcule la distribution hebdomadaire de l'indice de Shannon.
 
-    Logique :
-    - 40% Shannon : diversité globale
-    - 30% Piélou  : équilibre de répartition
-    - 30% stabilité temporelle : basée sur le coefficient de variation
-      du Shannon hebdomadaire
+    Cette fonction sert notamment à :
+    - mesurer la stabilité temporelle
+    - alimenter le diagnostic écologique
+    - éviter de recalculer plusieurs fois la même logique
+      dans différents onglets
 
-    Le score final est ramené sur 100.
-
-    Parameters
-    ----------
-    bootstrap_results : dict
-        Résultats du bootstrap contenant notamment :
-        - bootstrap_results['H'][0] = Shannon moyen
-        - bootstrap_results['J'][0] = Piélou moyen
-
-    df_dist_shannon : pd.DataFrame
-        Distribution hebdomadaire du Shannon.
-
-    Returns
-    -------
-    score_e1c : float
-        Score global sur 100
-    cv_shannon : float
-        Coefficient de variation du Shannon hebdomadaire
-    score_stabilite : float
-        Sous-score de stabilité entre 0 et 1
+    Principe :
+    1. on agrège les détections par site / semaine / espèce
+    2. on calcule Shannon pour chaque couple (site, semaine)
     """
-    if not bootstrap_results or df_dist_shannon.empty:
-        return 0.0, np.nan, 0.0
+    # ---------------------------------------------------------
+    # 1. Garde-fou : dataset vide
+    # ---------------------------------------------------------
+    if df_input.empty:
+        return pd.DataFrame(columns=['site', 'week_id', 'shannon_val'])
 
     # ---------------------------------------------------------
-    # 1. Composante diversité
+    # 2. Agrégation hebdomadaire des abondances par espèce
     # ---------------------------------------------------------
-    # On normalise Shannon sur 3, ce qui est cohérent
-    # avec l’échelle de référence utilisée dans ton application.
-    shannon_mean = bootstrap_results['H'][0]
-    score_shannon = min(shannon_mean / 3.0, 1.0)
+    # On utilise week_id défini dans load_data()
+    # pour garantir une logique temporelle cohérente partout.
+    # ---------------------------------------------------------
+    df_weekly_stats = df_input.groupby(
+        ['site', 'week_id', 'vernacular_name']
+    )['detection_count'].sum().reset_index()
 
     # ---------------------------------------------------------
-    # 2. Composante équilibre
+    # 3. Fonction locale de calcul de Shannon
     # ---------------------------------------------------------
-    # Piélou est déjà compris entre 0 et 1.
-    pielou_mean = bootstrap_results['J'][0]
-    score_pielou = min(max(pielou_mean, 0), 1)
+    def compute_shannon(group):
+        total = group['detection_count'].sum()
+
+        if total == 0:
+            return 0.0
+
+        p_i = group['detection_count'] / total
+        return float(-1 * (p_i * np.log(p_i + 1e-9)).sum())
 
     # ---------------------------------------------------------
-    # 3. Composante stabilité temporelle
+    # 4. Calcul du Shannon par site et par semaine
     # ---------------------------------------------------------
-    shannon_weekly = df_dist_shannon['shannon_val'].dropna()
+    df_dist_shannon = df_weekly_stats.groupby(
+        ['site', 'week_id']
+    ).apply(
+        compute_shannon,
+        include_groups=False
+    ).reset_index(name='shannon_val')
 
-    if len(shannon_weekly) >= 2 and shannon_weekly.mean() > 0:
-        cv_shannon = shannon_weekly.std() / shannon_weekly.mean()
-
-        # Plus le CV est faible, plus le site est stable
-        score_stabilite = max(0.0, min(1.0, 1 - cv_shannon))
-    else:
-        cv_shannon = np.nan
-        score_stabilite = 0.0
-
-    # ---------------------------------------------------------
-    # 4. Score final pondéré /100
-    # ---------------------------------------------------------
-    score_e1c = (
-        score_shannon * 40 +
-        score_pielou * 30 +
-        score_stabilite * 30
-    )
-
-    return float(score_e1c), float(cv_shannon) if pd.notna(cv_shannon) else np.nan, float(score_stabilite)
+    return df_dist_shannon
 
 @st.cache_data
 def prepare_long_term_indicators(df_input, grain="M"):
@@ -1821,7 +1754,6 @@ def prepare_long_term_indicators(df_input, grain="M"):
 
     return df_metrics
 
-
 @st.cache_data
 def prepare_long_term_summary(df_input, grain="M"):
     """
@@ -1892,62 +1824,6 @@ def prepare_long_term_summary(df_input, grain="M"):
 
     return df_summary
 
-    # ---------------------------------------------------------
-    # 1. Calcul des indicateurs détaillés par site et période
-    # ---------------------------------------------------------
-    df_long = prepare_long_term_indicators(df_input, grain=grain)
-
-    if df_long is None or df_long.empty:
-        return pd.DataFrame()
-
-    # ---------------------------------------------------------
-    # 2. Colonnes quantitatives à résumer
-    # ---------------------------------------------------------
-    metric_cols = [
-        "richesse",
-        "shannon",
-        "pielou",
-        "simpson_inv_d",
-        "detections",
-        "events"
-    ]
-
-    # ---------------------------------------------------------
-    # 3. Résumé inter-sites par période
-    # ---------------------------------------------------------
-    agg_dict = {}
-    for col in metric_cols:
-        agg_dict[col] = ["mean", "std", "count"]
-
-    df_summary = df_long.groupby(
-        ["period_label", "period_start"]
-    ).agg(agg_dict)
-
-    # Aplatissement des noms de colonnes
-    df_summary.columns = [
-        f"{metric}_{stat}" for metric, stat in df_summary.columns
-    ]
-    df_summary = df_summary.reset_index()
-
-    # ---------------------------------------------------------
-    # 4. Calcul des erreurs standards
-    # ---------------------------------------------------------
-    for col in metric_cols:
-        mean_col = f"{col}_mean"
-        std_col = f"{col}_std"
-        count_col = f"{col}_count"
-        sem_col = f"{col}_sem"
-
-        df_summary[std_col] = df_summary[std_col].fillna(0)
-        df_summary[sem_col] = df_summary[std_col] / np.sqrt(df_summary[count_col].replace(0, np.nan))
-        df_summary[sem_col] = df_summary[sem_col].fillna(0)
-
-    # ---------------------------------------------------------
-    # 5. Tri chronologique
-    # ---------------------------------------------------------
-    df_summary = df_summary.sort_values("period_start").reset_index(drop=True)
-
-    return df_summary
     # ---------------------------------------------------------
     # 1. Garde-fou : dataset vide ou absent
     # ---------------------------------------------------------
@@ -2072,26 +1948,205 @@ def prepare_long_term_summary(df_input, grain="M"):
 
     return df_metrics
 
-
-
     def compute_shannon(group):
         """
-        Calcule l'indice de Shannon à partir d'abondances.
+        Calcule Shannon pour un groupe (site + semaine).
         """
         total = group['detection_count'].sum()
-        if total == 0:
-            return 0
-        p_i = group['detection_count'] / total
-        return -1 * (p_i * np.log(p_i + 1e-9)).sum()
 
-    df_dist_shannon = df_weekly_stats.groupby(
-        ['site', 'Semaine']
-    ).apply(
-        compute_shannon,
-        include_groups=False
-    ).reset_index(name='shannon_val')
+        if total == 0:
+            return 0.0
+
+        p_i = group['detection_count'] / total
+        return float(-1 * (p_i * np.log(p_i + 1e-9)).sum())
+
+    # Calcul final du Shannon hebdomadaire
+    df_dist_shannon = (
+        df_weekly_stats.groupby(['site', 'Semaine'])
+        .apply(compute_shannon, include_groups=False)
+        .reset_index(name='shannon_val')
+    )
 
     return df_dist_shannon
+
+" A SUPPRIMER"
+
+def compute_indice_e1c(bootstrap_results, df_dist_shannon):
+    """
+    Calcule l’Indice E1C (Every1Counts), un score écologique global simplifié.
+
+    Logique :
+    - 40% Shannon : diversité globale
+    - 30% Piélou  : équilibre de répartition
+    - 30% stabilité temporelle : basée sur le coefficient de variation
+      du Shannon hebdomadaire
+
+    Le score final est ramené sur 100.
+
+    Parameters
+    ----------
+    bootstrap_results : dict
+        Résultats du bootstrap contenant notamment :
+        - bootstrap_results['H'][0] = Shannon moyen
+        - bootstrap_results['J'][0] = Piélou moyen
+
+    df_dist_shannon : pd.DataFrame
+        Distribution hebdomadaire du Shannon.
+
+    Returns
+    -------
+    score_e1c : float
+        Score global sur 100
+    cv_shannon : float
+        Coefficient de variation du Shannon hebdomadaire
+    score_stabilite : float
+        Sous-score de stabilité entre 0 et 1
+    """
+    if not bootstrap_results or df_dist_shannon.empty:
+        return 0.0, np.nan, 0.0
+
+    # ---------------------------------------------------------
+    # 1. Composante diversité
+    # ---------------------------------------------------------
+    # On normalise Shannon sur 3, ce qui est cohérent
+    # avec l’échelle de référence utilisée dans ton application.
+    shannon_mean = bootstrap_results['H'][0]
+    score_shannon = min(shannon_mean / 3.0, 1.0)
+
+    # ---------------------------------------------------------
+    # 2. Composante équilibre
+    # ---------------------------------------------------------
+    # Piélou est déjà compris entre 0 et 1.
+    pielou_mean = bootstrap_results['J'][0]
+    score_pielou = min(max(pielou_mean, 0), 1)
+
+    # ---------------------------------------------------------
+    # 3. Composante stabilité temporelle
+    # ---------------------------------------------------------
+    shannon_weekly = df_dist_shannon['shannon_val'].dropna()
+
+    if len(shannon_weekly) >= 2 and shannon_weekly.mean() > 0:
+        cv_shannon = shannon_weekly.std() / shannon_weekly.mean()
+
+        # Plus le CV est faible, plus le site est stable
+        score_stabilite = max(0.0, min(1.0, 1 - cv_shannon))
+    else:
+        cv_shannon = np.nan
+        score_stabilite = 0.0
+
+    # ---------------------------------------------------------
+    # 4. Score final pondéré /100
+    # ---------------------------------------------------------
+    score_e1c = (
+        score_shannon * 40 +
+        score_pielou * 30 +
+        score_stabilite * 30
+    )
+
+    return float(score_e1c), float(cv_shannon) if pd.notna(cv_shannon) else np.nan, float(score_stabilite)
+
+# ---------------------------------------------------------
+# FONCTION : calcul de l'indice E1C calibré SON
+# ---------------------------------------------------------
+def compute_indice_e1c_calibrated_sound(bootstrap_results, df_dist_shannon):
+    """
+    Calcule l'Indice E1C calibré pour les données acoustiques.
+
+    Composantes :
+    - Shannon  : 40%
+    - Piélou   : 30%
+    - Stabilité: 20%
+    - Simpson  : 10%
+
+    Chaque composante est ramenée sur 100,
+    puis combinée selon les pondérations.
+    """
+    if not bootstrap_results or df_dist_shannon.empty:
+        return {
+            "score_e1c": 0.0,
+            "cv_shannon": np.nan,
+            "score_stabilite": 0.0,
+            "score_shannon": 0.0,
+            "score_pielou": 0.0,
+            "score_simpson": 0.0
+        }
+
+    # ---------------------------------------------------------
+    # 1. Valeurs bootstrapées
+    # ---------------------------------------------------------
+    shannon_mean = bootstrap_results['H'][0]
+    pielou_mean = bootstrap_results['J'][0]
+    simpson_mean = bootstrap_results['InvD'][0]
+
+    # ---------------------------------------------------------
+    # 2. Normalisation sur les références son
+    # ---------------------------------------------------------
+    score_shannon = normalize_score(
+        shannon_mean,
+        E1C_REFERENCE_SOUND["Shannon"]["min"],
+        E1C_REFERENCE_SOUND["Shannon"]["max"]
+    )
+
+    score_pielou = normalize_score(
+        pielou_mean,
+        E1C_REFERENCE_SOUND["Pielou"]["min"],
+        E1C_REFERENCE_SOUND["Pielou"]["max"]
+    )
+
+    score_simpson = normalize_score(
+        simpson_mean,
+        E1C_REFERENCE_SOUND["Simpson"]["min"],
+        E1C_REFERENCE_SOUND["Simpson"]["max"]
+    )
+
+    # ---------------------------------------------------------
+    # 3. Calcul de la stabilité temporelle
+    # ---------------------------------------------------------
+    shannon_weekly = df_dist_shannon['shannon_val'].dropna()
+
+    if len(shannon_weekly) >= 2 and shannon_weekly.mean() > 0:
+        cv_shannon = shannon_weekly.std() / shannon_weekly.mean()
+
+        # CV faible = meilleure stabilité
+        score_stabilite = max(0.0, min(100.0, (1 - min(cv_shannon, 1.0)) * 100))
+    else:
+        cv_shannon = np.nan
+        score_stabilite = 0.0
+
+    # ---------------------------------------------------------
+    # 4. Score final pondéré
+    # ---------------------------------------------------------
+    score_e1c = (
+        score_shannon * E1C_WEIGHTS_SOUND["Shannon"] +
+        score_pielou * E1C_WEIGHTS_SOUND["Pielou"] +
+        score_stabilite * E1C_WEIGHTS_SOUND["Stabilite"] +
+        score_simpson * E1C_WEIGHTS_SOUND["Simpson"]
+    )
+
+    return {
+        "score_e1c": float(score_e1c),
+        "cv_shannon": float(cv_shannon) if pd.notna(cv_shannon) else np.nan,
+        "score_stabilite": float(score_stabilite),
+        "score_shannon": float(score_shannon),
+        "score_pielou": float(score_pielou),
+        "score_simpson": float(score_simpson)
+    }
+
+# ---------------------------------------------------------
+# FONCTION : lecture du score E1C son
+# ---------------------------------------------------------
+def classify_e1c_sound(score_e1c):
+    """
+    Retourne une classe de lecture du score E1C son.
+    """
+    if score_e1c >= E1C_THRESHOLDS_SOUND["high"]:
+        return "Excellent"
+    elif score_e1c >= E1C_THRESHOLDS_SOUND["medium"]:
+        return "Bon"
+    elif score_e1c >= E1C_THRESHOLDS_SOUND["low"]:
+        return "Intermédiaire"
+    else:
+        return "Faible"
 
 def compute_species_dominance(df_input, top_n=3):
     """
@@ -2174,143 +2229,6 @@ def compute_anthropic_pressure_index(df_input):
 
     return float(prop_nuit), float(pressure_score)
 
-def normalize_score(value, vmin, vmax):
-    """
-    Ramène une valeur sur une échelle 0-100 entre une borne min et max.
-    Toute valeur en dessous de min est ramenée à 0.
-    Toute valeur au-dessus de max est ramenée à 100.
-    """
-    if pd.isna(value):
-        return 0.0
-
-    if vmax <= vmin:
-        return 0.0
-
-    score = (value - vmin) / (vmax - vmin)
-    score = max(0.0, min(1.0, score))
-    return float(score * 100)
-
-
-
-def compute_species_dominance(df_input, top_n=3):
-    """
-    Calcule la part des top espèces dominantes.
-    """
-    if df_input.empty:
-        return 0.0, pd.DataFrame(columns=["vernacular_name", "detection_count"])
-
-    df_counts = (
-        df_input.groupby("vernacular_name")["detection_count"]
-        .sum()
-        .sort_values(ascending=False)
-        .reset_index()
-    )
-
-    total = df_counts["detection_count"].sum()
-    if total == 0:
-        return 0.0, df_counts.head(top_n)
-
-    top_sum = df_counts.head(top_n)["detection_count"].sum()
-    dominance_ratio = top_sum / total
-
-    return float(dominance_ratio), df_counts.head(top_n)
-
-
-
-def compute_indice_e1c_calibrated(bootstrap_results, df_dist_shannon):
-    """
-    Calcule l'Indice E1C calibré caméra.
-
-    Composantes :
-    - Shannon  : 40%
-    - Piélou   : 30%
-    - Stabilité: 20%
-    - Simpson  : 10%
-
-    Shannon, Piélou et Simpson sont normalisés entre Etréchy (min)
-    et Purcari (max).
-
-    La stabilité est calculée via le CV du Shannon hebdomadaire :
-    - CV = 0      -> score 100
-    - CV >= 1     -> score 0
-    """
-    if not bootstrap_results or df_dist_shannon.empty:
-        return {
-            "score_e1c": 0.0,
-            "cv_shannon": np.nan,
-            "score_stabilite": 0.0,
-            "score_shannon": 0.0,
-            "score_pielou": 0.0,
-            "score_simpson": 0.0
-        }
-
-    # Valeurs bootstrapées
-    shannon_mean = bootstrap_results['H'][0]
-    pielou_mean = bootstrap_results['J'][0]
-    simpson_mean = bootstrap_results['InvD'][0]
-
-    # Normalisation sur références terrain
-    score_shannon = normalize_score(
-        shannon_mean,
-        E1C_REFERENCE["Shannon"]["min"],
-        E1C_REFERENCE["Shannon"]["max"]
-    )
-
-    score_pielou = normalize_score(
-        pielou_mean,
-        E1C_REFERENCE["Pielou"]["min"],
-        E1C_REFERENCE["Pielou"]["max"]
-    )
-
-    score_simpson = normalize_score(
-        simpson_mean,
-        E1C_REFERENCE["Simpson"]["min"],
-        E1C_REFERENCE["Simpson"]["max"]
-    )
-
-    # Stabilité temporelle
-    shannon_weekly = df_dist_shannon['shannon_val'].dropna()
-
-    if len(shannon_weekly) >= 2 and shannon_weekly.mean() > 0:
-        cv_shannon = shannon_weekly.std() / shannon_weekly.mean()
-
-        # CV faible = meilleure stabilité
-        score_stabilite = max(0.0, min(100.0, (1 - min(cv_shannon, 1.0)) * 100))
-    else:
-        cv_shannon = np.nan
-        score_stabilite = 0.0
-
-    # Score final pondéré
-    score_e1c = (
-        score_shannon * E1C_WEIGHTS["Shannon"] +
-        score_pielou * E1C_WEIGHTS["Pielou"] +
-        score_stabilite * E1C_WEIGHTS["Stabilite"] +
-        score_simpson * E1C_WEIGHTS["Simpson"]
-    )
-
-    return {
-        "score_e1c": float(score_e1c),
-        "cv_shannon": float(cv_shannon) if pd.notna(cv_shannon) else np.nan,
-        "score_stabilite": float(score_stabilite),
-        "score_shannon": float(score_shannon),
-        "score_pielou": float(score_pielou),
-        "score_simpson": float(score_simpson)
-    }
-
-
-def classify_e1c(score_e1c):
-    """
-    Retourne une classe de lecture du score E1C.
-    """
-    if score_e1c >= E1C_THRESHOLDS["high"]:
-        return "Excellent"
-    elif score_e1c >= E1C_THRESHOLDS["medium"]:
-        return "Bon"
-    elif score_e1c >= E1C_THRESHOLDS["low"]:
-        return "Intermédiaire"
-    else:
-        return "Faible"
-
 def build_sites_map_figure(df_input, zoom=12):
     """
     Construit une carte des sites / hotspots à partir du dataframe filtré.
@@ -2373,34 +2291,54 @@ def build_sites_map_figure(df_input, zoom=12):
     fig_map = go.Figure()
 
     fig_map.add_trace(go.Scattermapbox(
-    lat=df_map['latitude'],
-    lon=df_map['longitude'],
-    mode='markers+text',
-    text=df_map['site'].astype(str),
-    textposition='top center',
-    textfont=dict(
-        size=14,
-        color='white',
-        family='Arial Black'
-    ),
-    marker=go.scattermapbox.Marker(
-        size=15,
-        color=C_ROUGE,
-        opacity=0.90
-    ),
-    customdata=df_map[['site']],
-    hovertemplate=(
-        "<b>%{customdata[0]}</b><br>"
-        "Lat : %{lat:.5f}<br>"
-        "Lon : %{lon:.5f}"
-        "<extra></extra>"
-    ),
-    showlegend=False
-))
+        lat=df_map['latitude'],
+        lon=df_map['longitude'],
+        mode='markers',
+        marker=go.scattermapbox.Marker(
+            size=marker_sizes,
+            color=df_map['detection_count'],
+            colorscale=[[0, C_ROSE], [1, C_ROUGE]],
+            showscale=True,
+            colorbar=dict(
+                title="Détections",
+                thickness=14,
+                len=0.65,
+                x=0.92
+            ),
+            opacity=0.9
+        ),
+        customdata=df_map[['site', 'detection_count']],
+        hovertemplate=(
+            "<b>%{customdata[0]}</b><br>"
+            "Détections : %{customdata[1]:.0f}<br>"
+            "Lat : %{lat:.5f}<br>"
+            "Lon : %{lon:.5f}"
+            "<extra></extra>"
+        ),
+        showlegend=False
+    ))
+
+    fig_map.add_trace(go.Scattermapbox(
+        lat=df_map['latitude'],
+        lon=df_map['longitude'],
+        mode='text',
+        text=df_map['site'].astype(str),
+        textposition='top right',
+        textfont=dict(size=13, color='white', family='Arial Black'),
+        hoverinfo='skip',
+        showlegend=False
+    ))
 
     fig_map.update_layout(
         mapbox=dict(
-    style="carto-positron",
+            style="white-bg",
+            layers=[{
+                "below": "traces",
+                "sourcetype": "raster",
+                "source": [
+                    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                ]
+            }],
             center=dict(
                 lat=float(df_map['latitude'].mean()),
                 lon=float(df_map['longitude'].mean())
@@ -3248,7 +3186,117 @@ def prepare_temporal_bray_curtis(df_input, grain="M"):
 
     return pd.DataFrame(rows)
 
+# =========================================================
+# PENTE DE TENDANCE LINÉAIRE
+# =========================================================
+@st.cache_data
+def compute_linear_trend(df_input, x_col, y_col):
+    """
+    Calcule une tendance linéaire simple sur une série temporelle.
 
+    Parameters
+    ----------
+    df_input : pd.DataFrame
+        Tableau contenant la série.
+    x_col : str
+        Colonne temporelle (ordre des périodes).
+    y_col : str
+        Colonne quantitative à analyser.
+
+    Returns
+    -------
+    dict
+        {
+            "slope": pente,
+            "intercept": intercept,
+            "r2": coefficient de détermination
+        }
+    """
+    # ---------------------------------------------------------
+    # 1. Garde-fous
+    # ---------------------------------------------------------
+    if df_input is None or df_input.empty:
+        return {
+            "slope": np.nan,
+            "intercept": np.nan,
+            "r2": np.nan
+        }
+
+    if x_col not in df_input.columns or y_col not in df_input.columns:
+        return {
+            "slope": np.nan,
+            "intercept": np.nan,
+            "r2": np.nan
+        }
+
+    # ---------------------------------------------------------
+    # 2. Nettoyage des données
+    # ---------------------------------------------------------
+    df_temp = df_input[[x_col, y_col]].dropna().copy()
+
+    if len(df_temp) < 2:
+        return {
+            "slope": np.nan,
+            "intercept": np.nan,
+            "r2": np.nan
+        }
+
+    df_temp = df_temp.sort_values(x_col).reset_index(drop=True)
+
+    # ---------------------------------------------------------
+    # 3. Construction d'un temps numérique simple
+    # ---------------------------------------------------------
+    # On ne travaille pas ici avec des dates réelles, mais avec
+    # l'ordre des périodes : 0, 1, 2, 3, ...
+    # Cela suffit pour mesurer une tendance directionnelle.
+    # ---------------------------------------------------------
+    df_temp["t"] = np.arange(len(df_temp))
+
+    x = df_temp["t"].values.astype(float)
+    y = df_temp[y_col].values.astype(float)
+
+    # ---------------------------------------------------------
+    # 4. Régression linéaire simple
+    # ---------------------------------------------------------
+    slope, intercept = np.polyfit(x, y, 1)
+
+    y_pred = slope * x + intercept
+
+    # ---------------------------------------------------------
+    # 5. Qualité d'ajustement (R²)
+    # ---------------------------------------------------------
+    ss_res = np.sum((y - y_pred) ** 2)
+    ss_tot = np.sum((y - np.mean(y)) ** 2)
+
+    if ss_tot > 0:
+        r2 = 1 - (ss_res / ss_tot)
+    else:
+        r2 = np.nan
+
+    return {
+        "slope": float(slope),
+        "intercept": float(intercept),
+        "r2": float(r2) if pd.notna(r2) else np.nan
+    }
+
+# ---------------------------------------------------------
+# FONCTION : normaliser une valeur sur une échelle 0-100
+# ---------------------------------------------------------
+def normalize_score(value, vmin, vmax):
+    """
+    Ramène une valeur sur une échelle 0-100 entre une borne min et max.
+    Toute valeur en dessous de min est ramenée à 0.
+    Toute valeur au-dessus de max est ramenée à 100.
+    """
+    if pd.isna(value):
+        return 0.0
+
+    if vmax <= vmin:
+        return 0.0
+
+    score = (value - vmin) / (vmax - vmin)
+    score = max(0.0, min(1.0, score))
+    return float(score * 100)
 
 # 8. CALCULS PRINCIPAUX
 if not df.empty:
@@ -3271,7 +3319,7 @@ if not df.empty:
     color_map = {esp: PALETTE_ESPECES[i] for i, esp in enumerate(top9)}
     color_map["Autres"] = C_GRIS
 
-    # ---------------------------------------------------------
+        # ---------------------------------------------------------
     # Préparation des catégories graphiques
     # ---------------------------------------------------------
     # On conserve les 9 espèces les plus abondantes,
@@ -3290,8 +3338,7 @@ if not df.empty:
     # ---------------------------------------------------------
     df['Semaine'] = df['week_start']
 
-
-    st.title("📷 Tableaux de bord - Images/Vidéos")
+    st.title("🎧 Tableaux de bord - Son")
 
     tab_global, tab_comparaison, tab_stats, tab_long_terme, tab_diagnostic, tab_export = st.tabs(
     ["📊 Dashboard Global", "🔬 Comparaison de Sites", "📈 Statistiques", "📆 Dynamiques long terme", "🧠 Diagnostic écologique", "📥 Export"]
@@ -3640,37 +3687,50 @@ if not df.empty:
                     n_iterations=BOOTSTRAP_CONFIG["iajc_iterations"]
                 )
 
-                df_b_wild = df_base_date[~df_base_date['vernacular_name'].isin(domestiques)].copy()
+            if stats_b_toutes:
+                # Références lues depuis la configuration du début de programme
+                ref_shannon = {s["label"]: s for s in REFERENCES_INDICES["Shannon"]["sites"]}
+                ref_iajc = {s["label"]: s for s in REFERENCES_INDICES["IAJC"]["sites"]}
 
-                stats_b_wild = compute_bootstrap_stats(
-                    df_b_wild,
-                    n_samples=BOOTSTRAP_CONFIG["n_samples"],
-                    n_iterations=BOOTSTRAP_CONFIG["n_iterations"]
-                )
-                iajc_b_wild_m, iajc_b_wild_s = compute_bootstrap_iajc(
-                    df_b_wild,
-                    n_iterations=BOOTSTRAP_CONFIG["iajc_iterations"]
-                )
-
-
-            if stats_b_toutes and stats_b_wild:
                 comparison_data = [
-                    {"Site": "SITE (Toutes)", "Shannon": stats_b_toutes['H'][0], "S_err": stats_b_toutes['H'][1],
-                     "IAJC": iajc_b_toutes_m, "I_err": iajc_b_toutes_s},
-                    {"Site": "SITE (Sauvages)", "Shannon": stats_b_wild['H'][0], "S_err": stats_b_wild['H'][1],
-                     "IAJC": iajc_b_wild_m, "I_err": iajc_b_wild_s},
-                    {"Site": "Etrechy (Toutes)", "Shannon": 1.36, "S_err": 0.04, "IAJC": 1.92, "I_err": 0.04},
-                    {"Site": "Lavallière (Toutes)", "Shannon": 1.80, "S_err": 0.04, "IAJC": 2.23, "I_err": 0.16},
-                    {"Site": "La Peyruche (Toutes)", "Shannon": 1.88, "S_err": 0.04, "IAJC": 1.36, "I_err": 0.10}
+                    {
+                        "Site": "SITE",
+                        "Shannon": stats_b_toutes['H'][0],
+                        "S_err": stats_b_toutes['H'][1],
+                        "IAJC": iajc_b_toutes_m,
+                        "I_err": iajc_b_toutes_s
+                    },
+
+                    {
+                        "Site": "LOW",
+                        "Shannon": ref_shannon["ET"]["score"],
+                        "S_err": ref_shannon["ET"]["err"],
+                        "IAJC": ref_iajc["ET"]["score"],
+                        "I_err": ref_iajc["ET"]["err"]
+                    },
+                    {
+                        "Site": "MIDLE",
+                        "Shannon": ref_shannon["LV"]["score"],
+                        "S_err": ref_shannon["LV"]["err"],
+                        "IAJC": ref_iajc["LV"]["score"],
+                        "I_err": ref_iajc["LV"]["err"]
+                    },
+                    {
+                        "Site": "HIGH",
+                        "Shannon": ref_shannon["LP"]["score"],
+                        "S_err": ref_shannon["LP"]["err"],
+                        "IAJC": ref_iajc["LP"]["score"],
+                        "I_err": ref_iajc["LP"]["err"]
+                    }
                 ]
+
                 df_plot = pd.DataFrame(comparison_data)
 
                 charte_map = {
-                    "SITE (Toutes)": C_ROUGE,
-                    "SITE (Sauvages)": C_ROSE,
-                    "Etrechy (Toutes)": C_VERT_SOMBRE,
-                    "Lavallière (Toutes)": C_BLEU,
-                    "La Peyruche (Toutes)": C_JAUNE
+                    "SITE": C_ROUGE,
+                    "Etrechy": C_VERT_SOMBRE,
+                    "Lavallière": C_BLEU,
+                    "La Peyruche": C_JAUNE
                 }
 
                 fig_corr = px.scatter(
@@ -3714,16 +3774,18 @@ if not df.empty:
             else:
                 st.warning("⚠️ Pas assez de données pour construire la comparaison inter-sites.")
 
-    # ---------------- TAB STATS ----------------
+        # ---------------- TAB STATS ----------------
     with tab_stats:
         st.subheader("📦 Distribution Hebdomadaire de la Diversité (Shannon)")
 
         # ---------------------------------------------------------
-# Distribution hebdomadaire de Shannon
-# ---------------------------------------------------------
-# On réutilise la fonction mutualisée pour éviter
-# de dupliquer la logique dans plusieurs endroits du script.
-# ---------------------------------------------------------
+        # Calcul de la distribution hebdomadaire de Shannon
+        # ---------------------------------------------------------
+        # On utilise la fonction mutualisée pour :
+        # - éviter de dupliquer le code
+        # - garantir la cohérence avec le reste du dashboard
+        # - améliorer les performances (cache possible)
+        # ---------------------------------------------------------
         df_dist_shannon = compute_weekly_shannon_distribution(df)
 
         site_groups = [df_dist_shannon[df_dist_shannon['site'] == s]['shannon_val'] for s in df_dist_shannon['site'].unique()]
@@ -3878,7 +3940,6 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
     # ---------------- TAB DYNAMIQUES LONG TERME ----------------
     with tab_long_terme:
         st.subheader("📆 Dynamiques de biodiversité à long terme")
-        
 
         st.write(
             "Cet onglet permet de suivre l'évolution des grands indicateurs "
@@ -3892,7 +3953,7 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
             "Choisir le grain temporel :",
             ["Mois", "Trimestre", "Année"],
             index=0,
-            key="long_term_grain"
+            key="long_term_grain_son"
         )
 
         grain_map = {
@@ -3925,7 +3986,7 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
                     "Évènements"
                 ],
                 index=1,
-                key="long_term_metric"
+                key="long_term_metric_son"
             )
 
             metric_config = {
@@ -3975,7 +4036,7 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
 
             conf = metric_config[metric_choice]
 
-            # ---------------------------------------------------------
+                        # ---------------------------------------------------------
             # Histogramme principal avec correction axe X
             # ---------------------------------------------------------
 
@@ -4304,6 +4365,7 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
                 "et quelles espèces disparaissent."
             )
 
+
             # ---------------------------------------------------------
             # Calcul du turnover temporel
             # ---------------------------------------------------------
@@ -4391,121 +4453,96 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
 
                     st.write(" ".join(comments))
 
-        # ---------------------------------------------------------
-        # 🌊 Stabilité des abondances (Bray-Curtis temporel)
-        # ---------------------------------------------------------
-        st.markdown("---")
-        st.markdown("### 🌊 Stabilité des abondances (Bray-Curtis temporel)")
+            st.markdown("---")
+            st.markdown("### 🌊 Stabilité des abondances (Bray-Curtis temporel)")
 
-        st.write(
-            "Ce graphique mesure à quel point la structure d'abondance des espèces "
-            "ressemble à celle de la période précédente."
-        )
-
-        # ---------------------------------------------------------
-        # Calcul Bray-Curtis
-        # ---------------------------------------------------------
-        df_bray = prepare_temporal_bray_curtis(df, grain=grain_code)
-
-        if df_bray is None or df_bray.empty:
-            st.warning("⚠️ Pas assez de données pour calculer Bray-Curtis.")
-        else:
-            # -----------------------------------------------------
-            # Sécurisation des labels (important pour les années)
-            # -----------------------------------------------------
-            df_bray["period_label_str"] = df_bray["period_label"].astype(str)
-
-            # -----------------------------------------------------
-            # Histogramme principal
-            # -----------------------------------------------------
-            fig_bray = px.bar(
-                df_bray,
-                x="period_label_str",
-                y="bray_curtis_similarity",
-                template="none",
-                text_auto=".2f"
+            st.write(
+                "Ce graphique mesure à quel point la structure d'abondance de la communauté "
+                "ressemble à celle de la période précédente."
             )
 
-            fig_bray.update_traces(
-                marker_color=C_MAUVE,
-                marker_line_color=C_VERT_SOMBRE,
-                marker_line_width=1.2,
-                textposition="outside"
-            )
+            df_bray = prepare_temporal_bray_curtis(df, grain=grain_code)
 
-            # -----------------------------------------------------
-            # Ligne de tendance
-            # -----------------------------------------------------
-            fig_bray.add_scatter(
-                x=df_bray["period_label_str"],
-                y=df_bray["bray_curtis_similarity"],
-                mode="lines+markers",
-                name="Tendance",
-                line=dict(color=C_ROUGE, width=3),
-                marker=dict(color=C_ROUGE, size=8)
-            )
-
-            # -----------------------------------------------------
-            # Mise en forme
-            # -----------------------------------------------------
-            fig_bray.update_layout(
-                title="Similarité d'abondance avec la période précédente (Bray-Curtis)",
-                xaxis_title=grain_label,
-                yaxis_title="Similarité (0 à 1)",
-                paper_bgcolor=C_FOND,
-                plot_bgcolor=C_FOND,
-                height=500,
-                showlegend=False,
-                yaxis=dict(range=[0, 1.05]),
-                xaxis=dict(tickangle=-45)
-            )
-
-            # IMPORTANT : évite bug affichage des années
-            fig_bray.update_xaxes(type="category")
-
-            st.plotly_chart(fig_bray, use_container_width=True)
-
-            # ---------------------------------------------------------
-            # 🧠 Lecture écologique automatique
-            # ---------------------------------------------------------
-            st.markdown("#### 🧠 Lecture écologique (Bray-Curtis)")
-
-            valid_vals = df_bray["bray_curtis_similarity"].dropna()
-
-            if len(valid_vals) == 0:
-                st.info("Pas assez de données pour interpréter la stabilité des abondances.")
+            if df_bray is None or df_bray.empty:
+                st.warning("⚠️ Pas assez de données pour calculer Bray-Curtis.")
             else:
-                mean_bc = valid_vals.mean()
-                min_bc = valid_vals.min()
+                df_bray["period_label_str"] = df_bray["period_label"].astype(str)
 
-                comments = []
+                fig_bray = px.bar(
+                    df_bray,
+                    x="period_label_str",
+                    y="bray_curtis_similarity",
+                    template="none",
+                    text_auto=".2f"
+                )
 
-                # Lecture globale
-                if mean_bc >= 0.75:
-                    comments.append(
-                        "La structure d'abondance des espèces reste globalement très stable dans le temps."
-                    )
-                elif mean_bc >= 0.55:
-                    comments.append(
-                        "La structure d'abondance présente des variations modérées entre périodes."
-                    )
+                fig_bray.update_traces(
+                    marker_color=C_MAUVE,
+                    marker_line_color=C_VERT_SOMBRE,
+                    marker_line_width=1.2,
+                    textposition="outside"
+                )
+
+                fig_bray.add_scatter(
+                    x=df_bray["period_label_str"],
+                    y=df_bray["bray_curtis_similarity"],
+                    mode="lines+markers",
+                    name="Tendance",
+                    line=dict(color=C_ROUGE, width=3),
+                    marker=dict(color=C_ROUGE, size=8)
+                )
+
+                fig_bray.update_layout(
+                    title="Similarité d'abondance avec la période précédente (Bray-Curtis)",
+                    xaxis_title=grain_label,
+                    yaxis_title="Similarité (0 à 1)",
+                    paper_bgcolor=C_FOND,
+                    plot_bgcolor=C_FOND,
+                    height=500,
+                    yaxis=dict(range=[0, 1.05]),
+                    xaxis=dict(tickangle=-45)
+                )
+                fig_bray.update_xaxes(type="category")
+
+                st.plotly_chart(fig_bray, use_container_width=True)
+
+                                # ---------------------------------------------------------
+                # Lecture automatique Bray-Curtis
+                # ---------------------------------------------------------
+                st.markdown("#### 🧠 Lecture écologique (Bray-Curtis)")
+
+                valid_vals = df_bray["bray_curtis_similarity"].dropna()
+
+                if len(valid_vals) == 0:
+                    st.info("Pas assez de données pour interpréter la stabilité des abondances.")
                 else:
-                    comments.append(
-                        "La structure d'abondance est instable, suggérant une recomposition importante de la communauté."
-                    )
+                    mean_bc = valid_vals.mean()
+                    min_bc = valid_vals.min()
 
-                # Détection de rupture
-                if min_bc < 0.40:
-                    worst_period = df_bray.loc[
-                        df_bray["bray_curtis_similarity"].idxmin(),
-                        "period_label"
-                    ]
-                    comments.append(
-                        f"Un changement marqué des abondances est observé autour de {worst_period}."
-                    )
+                    comments = []
 
-                # Lecture croisée avec Jaccard (si dispo)
-                if "df_stability" in locals() and df_stability is not None:
+                    # -----------------------------------------------------
+                    # Niveau global de stabilité des abondances
+                    # -----------------------------------------------------
+                    if mean_bc >= 0.75:
+                        comments.append("La structure d'abondance des espèces reste globalement très stable dans le temps.")
+                    elif mean_bc >= 0.55:
+                        comments.append("La structure d'abondance présente des variations modérées entre périodes.")
+                    else:
+                        comments.append("La structure d'abondance est instable, ce qui suggère une recomposition importante.")
+
+                    # -----------------------------------------------------
+                    # Détection d'événement ponctuel
+                    # -----------------------------------------------------
+                    if min_bc < 0.40:
+                        worst_period = df_bray.loc[df_bray["bray_curtis_similarity"].idxmin(), "period_label"]
+                        comments.append(
+                            f"Un changement marqué des abondances est observé autour de {worst_period}."
+                        )
+
+                    # -----------------------------------------------------
+                    # Lecture croisée avec Jaccard (si dispo)
+                    # -----------------------------------------------------
                     if "jaccard_prev" in df_stability.columns:
                         valid_j = df_stability["jaccard_prev"].dropna()
 
@@ -4517,7 +4554,9 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
                                     "Les espèces présentes restent globalement les mêmes, mais leur abondance relative évolue."
                                 )
 
-                st.write(" ".join(comments))
+                    st.write(" ".join(comments))
+
+#DOMINATION HOMOGENISATION
 
             st.markdown("---")
             st.markdown("### 🧬 Domination / homogénéisation de la communauté")
@@ -4532,9 +4571,9 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
             # ---------------------------------------------------------
             top_n_dom = st.slider(
                 "Nombre d'espèces dominantes à considérer :",
-                min_value=2,
-                max_value=10,
-                value=5,
+                min_value=3,
+                max_value=20,
+                value=10,
                 step=1,
                 key="dominance_top_n"
             )
@@ -4716,6 +4755,46 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
                     st.info("Pas assez de recul pour interpréter la domination écologique.")
 
             st.markdown("---")
+            st.markdown("### 🧭 Trajectoire écologique synthétique")
+
+            st.write(
+                "Cette synthèse combine plusieurs dimensions de l'écosystème : "
+                "diversité, stabilité de la communauté, turnover et domination."
+            )
+
+            # ---------------------------------------------------------
+            # Calcul de la trajectoire synthétique
+            # ---------------------------------------------------------
+            trajectory = compute_ecosystem_trajectory(
+                df,
+                grain=grain_code,
+                dominance_top_n=top_n_dom
+            )
+
+            # ---------------------------------------------------------
+            # Résumé visuel sous forme de métriques
+            # ---------------------------------------------------------
+            c1, c2, c3, c4 = st.columns(4)
+
+            with c1:
+                st.metric("Diversité", trajectory["diversity_trend"].capitalize())
+
+            with c2:
+                st.metric("Stabilité", trajectory["stability_level"].capitalize())
+
+            with c3:
+                st.metric("Turnover", trajectory["turnover_balance"].capitalize())
+
+            with c4:
+                st.metric("Domination", trajectory["dominance_trend"].capitalize())
+
+            st.markdown("#### ✅ Lecture synthétique")
+            st.success(trajectory["trajectory_label"])
+
+            st.markdown("#### 🧠 Interprétation")
+            st.write(trajectory["summary_text"])
+
+            st.markdown("---")
             st.markdown("### 🐾 Espèces en progression / en recul")
 
             st.write(
@@ -4730,7 +4809,7 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
             # (signal statistique peu robuste)
             # ---------------------------------------------------------
             min_det_species = st.slider(
-                "Une espèce doit avoir au moins 5 détections cumulées pour être analysée :",
+                "Nombre minimum d’observations pour analyser une espèce",
                 min_value=1,
                 max_value=20,
                 value=5,
@@ -4876,345 +4955,323 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
                 else:
                     st.info("Aucune variation marquée n'est détectée sur les espèces les plus fréquentes.")
 
-    # ---------------- TAB DIAGNOSTIC ----------------
-    with tab_diagnostic:
-        st.subheader("🧠 Diagnostic écologique")
-        
+    #     # ---------------- TAB DIAGNOSTIC ----------------
+    # with tab_diagnostic:
+    #     st.subheader("🧠 Diagnostic écologique")
 
-        # ---------------------------------------------------------
-        # 1. Calcul du Shannon hebdomadaire (stabilité)
-        # ---------------------------------------------------------
-        df_dist_shannon_diag = compute_weekly_shannon_distribution(df)
+    #     # ---------------------------------------------------------
+    #     # 1. Calcul du Shannon hebdomadaire (stabilité)
+    #     # ---------------------------------------------------------
+    #     df_dist_shannon_diag = compute_weekly_shannon_distribution(df)
 
-        # ---------------------------------------------------------
-        # 2. Calcul de l’indice E1C calibré
-        # ---------------------------------------------------------
-        e1c_results = compute_indice_e1c_calibrated(
-            bootstrap_results,
-            df_dist_shannon_diag
-        )
+    #     # ---------------------------------------------------------
+    #     # Calcul de l’indice E1C calibré SON
+    #     # ---------------------------------------------------------
+    #     e1c_results = compute_indice_e1c_calibrated_sound(
+    #         bootstrap_results,
+    #         df_dist_shannon_diag
+    #     )
 
-        score_e1c = e1c_results["score_e1c"]
-        cv_shannon = e1c_results["cv_shannon"]
-        score_stabilite = e1c_results["score_stabilite"]
-        score_shannon = e1c_results["score_shannon"]
-        score_pielou = e1c_results["score_pielou"]
-        score_simpson = e1c_results["score_simpson"]
+    #     score_e1c = e1c_results["score_e1c"]
+    #     cv_shannon = e1c_results["cv_shannon"]
+    #     score_stabilite = e1c_results["score_stabilite"]
+    #     score_shannon = e1c_results["score_shannon"]
+    #     score_pielou = e1c_results["score_pielou"]
+    #     score_simpson = e1c_results["score_simpson"]
 
-        classe_e1c = classify_e1c(score_e1c)
+    #     classe_e1c = classify_e1c_sound(score_e1c)
 
-        # ---------------------------------------------------------
-        # 3. Affichage des indicateurs principaux
-        # ---------------------------------------------------------
-        c1, c2, c3, c4 = st.columns(4)
+    #     # ---------------------------------------------------------
+    #     # 3. Affichage des indicateurs principaux
+    #     # ---------------------------------------------------------
+    #     c1, c2, c3, c4 = st.columns(4)
 
-        with c1:
-            st.metric(
-                "Indice E1C",
-                f"{score_e1c:.0f} / 100"
-            )
+    #     with c1:
+    #         st.metric(
+    #             "Indice E1C",
+    #             f"{score_e1c:.0f} / 100"
+    #         )
 
-        with c2:
-            # On sépare une classe courte et une référence plus détaillée
-            if "type " in classe_e1c:
-                classe_courte, reference_type = classe_e1c.split(" (type ", 1)
-                reference_type = "type " + reference_type.rstrip(")")
-            else:
-                classe_courte = classe_e1c
-                reference_type = ""
+    #     with c2:
+    #         st.metric(
+    #             "Classe écologique",
+    #             classe_e1c
+    #         )
 
-            st.metric(
-                "Classe écologique",
-                classe_courte
-            )
+    #     with c3:
+    #         if pd.notna(cv_shannon):
+    #             st.metric(
+    #                 "Stabilité temporelle (CV Shannon)",
+    #                 f"{cv_shannon:.2f}"
+    #             )
+    #         else:
+    #             st.metric(
+    #                 "Stabilité temporelle (CV Shannon)",
+    #                 "n.c."
+    #             )
 
-            if reference_type:
-                st.caption(f"Référence : {reference_type}")
+    #     with c4:
+    #         st.metric(
+    #             "Score de stabilité",
+    #             f"{score_stabilite:.0f} / 100"
+    #         )
 
-        with c3:
-            if pd.notna(cv_shannon):
-                st.metric(
-                    "Stabilité temporelle (CV Shannon)",
-                    f"{cv_shannon:.2f}"
-                )
-            else:
-                st.metric(
-                    "Stabilité temporelle (CV Shannon)",
-                    "n.c."
-                )
+    #     # ---------------------------------------------------------
+    #     # 4. Interprétation globale
+    #     # ---------------------------------------------------------
+    #     if score_e1c >= E1C_THRESHOLDS_SOUND["high"]:
+    #         st.success("🟢 Indice E1C excellent : site parmi les meilleurs niveaux observés dans le référentiel acoustique.")
+    #     elif score_e1c >= E1C_THRESHOLDS_SOUND["medium"]:
+    #         st.success("🟢 Indice E1C bon : site de bon niveau écologique dans le référentiel acoustique.")
+    #     elif score_e1c >= E1C_THRESHOLDS_SOUND["low"]:
+    #         st.warning("🟠 Indice E1C intermédiaire : site fonctionnel mais encore perfectible.")
+    #     else:
+    #         st.error("🔴 Indice E1C faible : site acoustiquement simplifié ou sous pression.")
 
-        with c4:
-            st.metric(
-                "Score de stabilité",
-                f"{score_stabilite:.0f} / 100"
-            )
+    #     # ---------------------------------------------------------
+    #     # 5. Décomposition du score E1C
+    #     # ---------------------------------------------------------
+    #     st.markdown("### 🧩 Décomposition de l’Indice E1C")
 
-        # ---------------------------------------------------------
-        # 4. Interprétation globale
-        # ---------------------------------------------------------
-        if score_e1c >= E1C_THRESHOLDS["high"]:
-            st.success("🟢 Indice E1C excellent : site comparable aux meilleurs niveaux observés.")
-        elif score_e1c >= E1C_THRESHOLDS["medium"]:
-            st.success("🟢 Indice E1C bon : site de bon niveau écologique.")
-        elif score_e1c >= E1C_THRESHOLDS["low"]:
-            st.warning(
-                "🟠 Indice E1C intermédiaire : site fonctionnel mais encore perfectible.")
-        else:
-            st.error(
-                "🔴 Indice E1C faible : site sous pression ou écologiquement simplifié.")
+    #     df_e1c_components = pd.DataFrame({
+    #         "Composante": [
+    #             "Diversité (Shannon)",
+    #             "Équilibre (Piélou)",
+    #             "Structure (Simpson 1/D)",
+    #             "Stabilité temporelle"
+    #         ],
+    #         "Score /100": [
+    #             score_shannon,
+    #             score_pielou,
+    #             score_simpson,
+    #             score_stabilite
+    #         ]
+    #     })
 
-        # ---------------------------------------------------------
-        # 5. Décomposition du score E1C
-        # ---------------------------------------------------------
-        st.markdown("### 🧩 Décomposition de l’Indice E1C")
+    #     fig_e1c = px.bar(
+    #         df_e1c_components,
+    #         x="Composante",
+    #         y="Score /100",
+    #         text="Score /100",
+    #         template="none"
+    #     )
 
-        df_e1c_components = pd.DataFrame({
-            "Composante": ["Diversité (Shannon)", "Équilibre (Piélou)", "Structure (Simpson 1/D)",
-                           "Stabilité temporelle"],
-            "Score /100": [score_shannon, score_pielou, score_simpson, score_stabilite]
-        })
+    #     fig_e1c.update_traces(
+    #         texttemplate="%{y:.0f}",
+    #         textposition="outside"
+    #     )
 
-        fig_e1c = px.bar(
-            df_e1c_components,
-            x="Composante",
-            y="Score /100",
-            text="Score /100",
-            template="none"
-        )
-        fig_e1c.update_traces(texttemplate="%{y:.0f}", textposition="outside")
-        fig_e1c.update_layout(
-            paper_bgcolor=C_FOND,
-            plot_bgcolor=C_FOND,
-            yaxis=dict(range=[0, 110]),
-            showlegend=False
-        )
-        st.plotly_chart(fig_e1c, use_container_width=True)
+    #     fig_e1c.update_layout(
+    #         paper_bgcolor=C_FOND,
+    #         plot_bgcolor=C_FOND,
+    #         yaxis=dict(range=[0, 110]),
+    #         showlegend=False
+    #     )
 
-        # ---------------------------------------------------------
-        # 6. Dominance des espèces
-        # ---------------------------------------------------------
-        dominance_ratio, df_top_dom = compute_species_dominance(df, top_n=3)
+    #     st.plotly_chart(fig_e1c, use_container_width=True)
 
-        st.markdown("### 🐾 Dominance des espèces")
+    #     # ---------------------------------------------------------
+    #     # 5. Dominance des espèces
+    #     # ---------------------------------------------------------
+    #     dominance_ratio, df_top_dom = compute_species_dominance(df, top_n=3)
 
-        c5, c6 = st.columns([1, 1.5])
+    #     st.markdown("### 🐾 Dominance des espèces")
 
-        with c5:
-            st.metric(
-                "Part des 3 espèces dominantes",
-                f"{dominance_ratio * 100:.1f}%"
-            )
+    #     c4, c5 = st.columns([1, 1.5])
 
-            if dominance_ratio < DIAG_THRESHOLDS["dominance_good"]:
-                st.success("🟢 Peuplement bien réparti")
-            elif dominance_ratio < DIAG_THRESHOLDS["dominance_medium"]:
-                st.warning("🟠 Dominance modérée")
-            else:
-                st.error("🔴 Forte dominance de quelques espèces")
+    #     with c4:
+    #         st.metric(
+    #             "Part des 3 espèces dominantes",
+    #             f"{dominance_ratio * 100:.1f}%"
+    #         )
 
-        with c6:
-            st.dataframe(
-                df_top_dom.rename(columns={
-                    "vernacular_name": "Espèce",
-                    "detection_count": "Détections"
-                }),
-                use_container_width=True,
-                hide_index=True
-            )
+    #         if dominance_ratio < 0.40:
+    #             st.success("🟢 Peuplement bien réparti")
+    #         elif dominance_ratio < 0.60:
+    #             st.warning("🟠 Dominance modérée")
+    #         else:
+    #             st.error("🔴 Forte dominance de quelques espèces")
 
-        # ---------------------------------------------------------
-        # 7. Pression anthropique / quiétude
-        # ---------------------------------------------------------
-        prop_nuit_diag, pressure_score = compute_anthropic_pressure_index(df)
+    #     with c5:
+    #         st.dataframe(
+    #             df_top_dom.rename(columns={
+    #                 "vernacular_name": "Espèce",
+    #                 "detection_count": "Détections"
+    #             }),
+    #             use_container_width=True,
+    #             hide_index=True
+    #         )
 
-        st.markdown("### 🌙 Pression anthropique / quiétude")
+    #     # ---------------------------------------------------------
+    #     # 6. Pression anthropique / quiétude
+    #     # ---------------------------------------------------------
+    #     prop_nuit_diag, pressure_score = compute_anthropic_pressure_index(df)
 
-        c7, c8 = st.columns(2)
+    #     st.markdown("### 🌙 Pression anthropique / quiétude")
 
-        with c7:
-            st.metric(
-                "Activité nocturne",
-                f"{prop_nuit_diag:.1f}%"
-            )
+    #     c6, c7 = st.columns(2)
 
-            if prop_nuit_diag < DIAG_THRESHOLDS["nocturnite_low"]:
-                st.success("🟢 Activité majoritairement diurne")
-            elif prop_nuit_diag < DIAG_THRESHOLDS["nocturnite_medium"]:
-                st.warning("🟠 Nocturnité modérée")
-            else:
-                st.error("🔴 Forte nocturnité")
+    #     with c6:
+    #         st.metric(
+    #             "Activité nocturne",
+    #             f"{prop_nuit_diag:.1f}%"
+    #         )
 
-        with c8:
-            st.metric(
-                "Score de pression",
-                f"{pressure_score:.2f}"
-            )
+    #         if prop_nuit_diag < 50:
+    #             st.success("🟢 Activité majoritairement diurne")
+    #         elif prop_nuit_diag < 70:
+    #             st.warning("🟠 Nocturnité modérée")
+    #         else:
+    #             st.error("🔴 Forte nocturnité")
 
-            if pressure_score < 0.25:
-                st.success("🟢 Pression anthropique faible supposée")
-            elif pressure_score < 0.50:
-                st.warning("🟠 Pression anthropique modérée")
-            else:
-                st.error("🔴 Pression anthropique élevée supposée")
+    #     with c7:
+    #         st.metric(
+    #             "Score de pression",
+    #             f"{pressure_score:.2f}"
+    #         )
 
-        # ---------------------------------------------------------
-        # 8. Lecture écologique automatique
-        # ---------------------------------------------------------
-        commentaires = []
+    #         if pressure_score < 0.25:
+    #             st.success("🟢 Pression anthropique faible supposée")
+    #         elif pressure_score < 0.50:
+    #             st.warning("🟠 Pression anthropique modérée")
+    #         else:
+    #             st.error("🔴 Pression anthropique élevée supposée")
 
-        # Lecture Shannon
-        if score_shannon >= 80:
-            commentaires.append("La diversité spécifique se rapproche des meilleurs niveaux observés.")
-        elif score_shannon >= 60:
-            commentaires.append("La diversité spécifique est bonne.")
-        elif score_shannon >= 40:
-            commentaires.append("La diversité spécifique est intermédiaire.")
-        else:
-            commentaires.append("La diversité spécifique reste faible.")
+    #     # ---------------------------------------------------------
+    #     # 7. Lecture écologique automatique
+    #     # ---------------------------------------------------------
+    #     commentaires = []
 
-        # Lecture Piélou
-        if score_pielou >= 80:
-            commentaires.append("La répartition des abondances est très équilibrée.")
-        elif score_pielou >= 60:
-            commentaires.append("La répartition des abondances est satisfaisante.")
-        elif score_pielou >= 40:
-            commentaires.append("La répartition des abondances est modérée.")
-        else:
-            commentaires.append("Quelques espèces dominent fortement le site.")
+    #     if bootstrap_results:
+    #         if bootstrap_results['H'][0] >= 1.8:
+    #             commentaires.append("La diversité spécifique est élevée.")
+    #         elif bootstrap_results['H'][0] >= 1.3:
+    #             commentaires.append("La diversité spécifique est intermédiaire.")
+    #         else:
+    #             commentaires.append("La diversité spécifique reste limitée.")
 
-        # Lecture Simpson
-        if score_simpson >= 80:
-            commentaires.append("Le nombre effectif d'espèces est très élevé.")
-        elif score_simpson >= 60:
-            commentaires.append("Le nombre effectif d'espèces est bon.")
-        elif score_simpson >= 40:
-            commentaires.append("Le nombre effectif d'espèces est intermédiaire.")
-        else:
-            commentaires.append("Le nombre effectif d'espèces reste limité.")
+    #         if bootstrap_results['J'][0] >= 0.6:
+    #             commentaires.append("La répartition des espèces est équilibrée.")
+    #         elif bootstrap_results['J'][0] >= 0.4:
+    #             commentaires.append("La répartition est modérée.")
+    #         else:
+    #             commentaires.append("Quelques espèces dominent fortement le site.")
 
-        # Lecture stabilité
-        if pd.notna(cv_shannon):
-            if cv_shannon < DIAG_THRESHOLDS["cv_stable"]:
-                commentaires.append("Le fonctionnement écologique apparaît stable dans le temps.")
-            elif cv_shannon < DIAG_THRESHOLDS["cv_medium"]:
-                commentaires.append("La dynamique temporelle est modérément variable.")
-            else:
-                commentaires.append("La variabilité temporelle est élevée, suggérant une instabilité écologique.")
-        else:
-            commentaires.append("La stabilité temporelle n’est pas calculable sur la période sélectionnée.")
+    #     if pd.notna(cv_shannon):
+    #         if cv_shannon < 0.2:
+    #             commentaires.append("Le fonctionnement écologique est stable.")
+    #         elif cv_shannon < 0.4:
+    #             commentaires.append("La dynamique est modérément variable.")
+    #         else:
+    #             commentaires.append("Forte variabilité → instabilité écologique.")
+    #     else:
+    #         commentaires.append("Stabilité non calculable sur cette période.")
 
-        # Lecture dominance
-        if dominance_ratio < DIAG_THRESHOLDS["dominance_good"]:
-            commentaires.append("Le peuplement est relativement bien réparti entre les espèces.")
-        elif dominance_ratio < DIAG_THRESHOLDS["dominance_medium"]:
-            commentaires.append("Quelques espèces structurent fortement le peuplement.")
-        else:
-            commentaires.append("Le site est fortement dominé par un petit nombre d'espèces.")
+    #     if dominance_ratio < 0.40:
+    #         commentaires.append("Le peuplement est relativement bien réparti entre les espèces.")
+    #     elif dominance_ratio < 0.60:
+    #         commentaires.append("Quelques espèces structurent fortement le peuplement.")
+    #     else:
+    #         commentaires.append("Le site est fortement dominé par un petit nombre d'espèces.")
 
-        # Lecture pression
-        if prop_nuit_diag < DIAG_THRESHOLDS["nocturnite_low"]:
-            commentaires.append("L'activité majoritairement diurne suggère une bonne quiétude.")
-        elif prop_nuit_diag < DIAG_THRESHOLDS["nocturnite_medium"]:
-            commentaires.append("La nocturnité est modérée, avec un possible effet de pression humaine.")
-        else:
-            commentaires.append("La forte nocturnité peut traduire un évitement de l'activité humaine diurne.")
+    #     if prop_nuit_diag < 50:
+    #         commentaires.append("L'activité est majoritairement diurne, ce qui suggère une bonne quiétude.")
+    #     elif prop_nuit_diag < 70:
+    #         commentaires.append("La nocturnité est modérée, avec un possible effet de pression humaine.")
+    #     else:
+    #         commentaires.append("La forte nocturnité peut traduire un évitement de l'activité humaine diurne.")
 
-        st.markdown("### 🧾 Lecture écologique")
-        st.write(" ".join(commentaires))
+    #     st.markdown("### 🧾 Lecture écologique")
+    #     st.write(" ".join(commentaires))
 
-        # ---------------------------------------------------------
-        # 9. Forces / Points de vigilance / Recommandations
-        # ---------------------------------------------------------
-        st.markdown("### 🧭 Forces / Points de vigilance / Recommandations")
+    #     # ---------------------------------------------------------
+    #     # 8. Forces / Points de vigilance / Recommandations
+    #     # ---------------------------------------------------------
+    #     st.markdown("### 🧭 Forces / Points de vigilance / Recommandations")
 
-        forces = []
-        vigilances = []
-        recommandations = []
+    #     forces = []
+    #     vigilances = []
+    #     recommandations = []
 
-        # Forces
-        if score_e1c >= E1C_THRESHOLDS["high"]:
-            forces.append("Indice E1C excellent, proche d’un site de référence haut type Purcari.")
-        elif score_e1c >= E1C_THRESHOLDS["medium"]:
-            forces.append("Indice E1C bon, cohérent avec un site de bon niveau écologique.")
-        if score_shannon >= 60:
-            forces.append("Diversité spécifique satisfaisante à élevée.")
-        if score_pielou >= 60:
-            forces.append("Répartition équilibrée des abondances.")
-        if score_simpson >= 60:
-            forces.append("Bon nombre effectif d’espèces.")
-        if pd.notna(cv_shannon) and cv_shannon < DIAG_THRESHOLDS["cv_stable"]:
-            forces.append("Bonne stabilité temporelle des indices.")
-        if dominance_ratio < DIAG_THRESHOLDS["dominance_good"]:
-            forces.append("Absence de forte domination par un petit nombre d'espèces.")
-        if prop_nuit_diag < DIAG_THRESHOLDS["nocturnite_low"]:
-            forces.append("Activité majoritairement diurne, compatible avec une bonne quiétude.")
+    #     # Forces
+    #     if score_e1c >= E1C_THRESHOLDS_SOUND["high"]:
+    #         forces.append("Indice E1C excellent dans le référentiel acoustique.")
+    #     elif score_e1c >= E1C_THRESHOLDS_SOUND["medium"]:
+    #         forces.append("Indice E1C bon, cohérent avec un site de bon niveau écologique.")
+    #     if score_shannon >= 60:
+    #         forces.append("Diversité spécifique satisfaisante à élevée.")
+    #     if score_pielou >= 60:
+    #         forces.append("Répartition équilibrée des abondances.")
+    #     if score_simpson >= 60:
+    #         forces.append("Bon nombre effectif d’espèces.")
+    #     if pd.notna(cv_shannon) and cv_shannon < DIAG_THRESHOLDS_SOUND["cv_stable"]:
+    #         forces.append("Bonne stabilité temporelle des indices.")
+    #     if dominance_ratio < DIAG_THRESHOLDS_SOUND["dominance_good"]:
+    #         forces.append("Absence de forte domination par un petit nombre d'espèces.")
+    #     if prop_nuit_diag < DIAG_THRESHOLDS_SOUND["nocturnite_low"]:
+    #         forces.append("Structure horaire majoritairement diurne.")
 
-        # Vigilances
-        if score_e1c < E1C_THRESHOLDS["low"]:
-            vigilances.append("Indice E1C faible, proche d’un profil de site bas.")
-        if score_shannon < 40:
-            vigilances.append("Diversité spécifique limitée.")
-        if score_pielou < 40:
-            vigilances.append("Répartition inégale des abondances.")
-        if score_simpson < 40:
-            vigilances.append("Nombre effectif d’espèces faible.")
-        if pd.notna(cv_shannon) and cv_shannon >= DIAG_THRESHOLDS["cv_medium"]:
-            vigilances.append("Variabilité temporelle élevée, traduisant une instabilité possible.")
-        if dominance_ratio >= DIAG_THRESHOLDS["dominance_medium"]:
-            vigilances.append("Forte domination de quelques espèces.")
-        if prop_nuit_diag >= DIAG_THRESHOLDS["nocturnite_medium"]:
-            vigilances.append("Nocturnité élevée pouvant traduire un évitement de l'activité humaine diurne.")
+    #     # Vigilances
+    #     if score_e1c < E1C_THRESHOLDS_SOUND["low"]:
+    #         vigilances.append("Indice E1C faible dans le référentiel acoustique.")
+    #     if score_shannon < 40:
+    #         vigilances.append("Diversité spécifique limitée.")
+    #     if score_pielou < 40:
+    #         vigilances.append("Répartition inégale des abondances.")
+    #     if score_simpson < 40:
+    #         vigilances.append("Nombre effectif d’espèces faible.")
+    #     if pd.notna(cv_shannon) and cv_shannon >= DIAG_THRESHOLDS_SOUND["cv_medium"]:
+    #         vigilances.append("Variabilité temporelle élevée, traduisant une instabilité possible.")
+    #     if dominance_ratio >= DIAG_THRESHOLDS_SOUND["dominance_medium"]:
+    #         vigilances.append("Forte domination de quelques espèces.")
+    #     if prop_nuit_diag >= DIAG_THRESHOLDS_SOUND["nocturnite_medium"]:
+    #         vigilances.append("Structure horaire fortement nocturne, à interpréter selon les espèces et la saison.")
 
-        # Recommandations
-        if score_e1c < E1C_THRESHOLDS["high"]:
-            recommandations.append(
-                "Poursuivre le suivi pour confirmer la trajectoire écologique du site dans le temps.")
-        if score_shannon < 40 or score_simpson < 40:
-            recommandations.append(
-                "Renforcer la diversité des habitats et la connectivité écologique à l’échelle du site.")
-        if dominance_ratio >= DIAG_THRESHOLDS["dominance_medium"]:
-            recommandations.append("Examiner les conditions favorisant la sur-dominance de certaines espèces.")
-        if pd.notna(cv_shannon) and cv_shannon >= DIAG_THRESHOLDS["cv_medium"]:
-            recommandations.append(
-                "Analyser les facteurs saisonniers ou de gestion pouvant expliquer l’instabilité observée.")
-        if prop_nuit_diag >= DIAG_THRESHOLDS["nocturnite_medium"]:
-            recommandations.append(
-                "Évaluer les sources potentielles de dérangement diurne : fréquentation, bruit, travaux, circulation.")
+    #     # Recommandations
+    #     if score_e1c < E1C_THRESHOLDS_SOUND["high"]:
+    #         recommandations.append("Poursuivre le suivi pour confirmer la trajectoire écologique du site dans le temps.")
+    #     if score_shannon < 40 or score_simpson < 40:
+    #         recommandations.append("Renforcer la diversité des habitats et la connectivité écologique autour du site.")
+    #     if dominance_ratio >= DIAG_THRESHOLDS_SOUND["dominance_medium"]:
+    #         recommandations.append("Examiner les facteurs favorisant la sur-dominance de certaines espèces.")
+    #     if pd.notna(cv_shannon) and cv_shannon >= DIAG_THRESHOLDS_SOUND["cv_medium"]:
+    #         recommandations.append("Analyser les facteurs saisonniers ou de gestion pouvant expliquer l’instabilité observée.")
+    #     if prop_nuit_diag >= DIAG_THRESHOLDS_SOUND["nocturnite_medium"]:
+    #         recommandations.append("Interpréter la structure horaire en lien avec les espèces détectées, la saison et le protocole d’enregistrement.")
 
-        if not forces:
-            forces.append("Aucun signal écologique fortement positif ne ressort nettement sur la période considérée.")
-        if not vigilances:
-            vigilances.append("Pas de point de vigilance majeur détecté sur la période analysée.")
-        if not recommandations:
-            recommandations.append("Maintenir le protocole de suivi actuel afin de consolider les tendances observées.")
+    #     if not forces:
+    #         forces.append("Aucun signal écologique fortement positif ne ressort nettement sur la période considérée.")
+    #     if not vigilances:
+    #         vigilances.append("Pas de point de vigilance majeur détecté sur la période analysée.")
+    #     if not recommandations:
+    #         recommandations.append("Maintenir le protocole de suivi actuel afin de consolider les tendances observées.")
 
-        col_f, col_v, col_r = st.columns(3)
+    #     col_f, col_v, col_r = st.columns(3)
 
-        with col_f:
-            st.markdown("#### ✅ Forces")
-            for item in forces:
-                st.write(f"• {item}")
+    #     with col_f:
+    #         st.markdown("#### ✅ Forces")
+    #         for item in forces:
+    #             st.write(f"• {item}")
 
-        with col_v:
-            st.markdown("#### ⚠️ Points de vigilance")
-            for item in vigilances:
-                st.write(f"• {item}")
+    #     with col_v:
+    #         st.markdown("#### ⚠️ Points de vigilance")
+    #         for item in vigilances:
+    #             st.write(f"• {item}")
 
-        with col_r:
-            st.markdown("#### 💡 Recommandations")
-            for item in recommandations:
-                st.write(f"• {item}")
+    #     with col_r:
+    #         st.markdown("#### 💡 Recommandations")
+    #         for item in recommandations:
+    #             st.write(f"• {item}")
 
-        # ---------------------------------------------------------
-        # 10. Note méthodologique
-        # ---------------------------------------------------------
-        st.info(
-            "L’indice E1C (Every1Counts) combine la diversité (Shannon), "
-            "l’équilibre des abondances (Piélou), la structure du peuplement (Simpson 1/D) "
-            "et la stabilité temporelle. La calibration V1 repose sur les sites de référence "
-            
-        )
-
+    #     # ---------------------------------------------------------
+    #     # 9. Définition de l’indice E1C
+    #     # ---------------------------------------------------------
+    #     st.info(
+    #         "L’indice E1C (Every1Counts) combine la diversité (Shannon), "
+    #         "l’équilibre des abondances (Piélou), la structure du peuplement (Simpson 1/D) "
+    #         "et la stabilité temporelle. La calibration SON repose sur les sites acoustiques "
+    #         "de référence intégrés au référentiel Every1Counts."
+    #     )
     # ---------------- TAB EXPORT ----------------
     with tab_export:
         st.subheader("📥 Exploration et Export des données")

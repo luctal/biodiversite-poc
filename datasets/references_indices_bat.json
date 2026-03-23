@@ -1,0 +1,63 @@
+{
+  "_comment": "Références écologiques - données acoustiques",
+
+  "Shannon": {
+    "nom": "Indice de Shannon",
+    "mode": "standard",
+    "min_tick": 1,
+    "max_tick": 4,
+    "sites": [
+      {"label": "ET", "score": 1.00, "err": 0.02, "desc": "bas"},
+      {"label": "LV", "score": 2.10, "err": 0.03, "desc": "moyen"},
+      {"label": "LP", "score": 3.3, "err": 0.02, "desc": "Haut"}
+    ]
+  },
+
+  "Richesse": {
+    "nom": "Richesse spécifique",
+    "mode": "large",
+    "min_tick": 0,
+    "max_tick": 40,
+    "sites": [
+      {"label": "ET", "score": 11, "err": 3, "desc": "bas"},
+      {"label": "LV", "score": 25, "err": 3, "desc": "moyen"},
+      {"label": "LP", "score": 36, "err": 3, "desc": "haut"}
+    ]
+  },
+
+  "InvD": {
+    "nom": "Nombre effectif (1 / D)",
+    "mode": "standard",
+    "min_tick": 1,
+    "max_tick": 10,
+    "sites": [
+      {"label": "ET", "score": 2, "err": 1.0, "desc": "bas"},
+      {"label": "LV", "score": 5, "err": 0.4, "desc": "moyen"},
+      {"label": "LP", "score": 9, "err": 0.5, "desc": "haut"}
+    ]
+  },
+
+  "Pielou": {
+    "nom": "Équitabilité de Piélou",
+    "mode": "tiny",
+    "min_tick": 0,
+    "max_tick": 1,
+    "sites": [
+      {"label": "ET", "score": 0.5, "err": 0.01, "desc": "bas"},
+      {"label": "LV", "score": 0.6, "err": 0.01, "desc": "moyen"},
+      {"label": "LP", "score": 0.8, "err": 0.01, "desc": "haut"}
+    ]
+  },
+
+  "IAJC": {
+    "nom": "Indice d'Activité (IAJC)",
+    "mode": "xlarge",
+    "min_tick": 0,
+    "max_tick": 1000,
+    "sites": [
+      {"label": "ET", "score": 200, "err": 0.0, "desc": "bas"},
+      {"label": "LV", "score": 500, "err": 0.0, "desc": "moyen"},
+      {"label": "LP", "score": 1500, "err": 0.0, "desc": "haut"}
+    ]
+  }
+}

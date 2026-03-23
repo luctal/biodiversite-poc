@@ -73,6 +73,11 @@ def generer_graphe_indice(
         max_tick = math.ceil((val_max + 1))
         pas_graduation = 5
 
+    elif mode == "xlarge":
+        min_tick = math.floor((val_min - 1))
+        max_tick = math.ceil((val_max + 1))
+        pas_graduation = 100
+
     elif mode == "tiny":
         min_tick = 0
         max_tick = 1
