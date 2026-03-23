@@ -6,11 +6,9 @@ import numpy as np
 import scikit_posthocs as sp
 import scipy.stats as scipy_stats
 import io
+import json
 
 from statsmodels.stats.multicomp import pairwise_tukeyhsd, MultiComparison
-
-
-
 
 # =========================================================
 # PARAMÈTRES GLOBAUX - BOOTSTRAP
@@ -24,51 +22,47 @@ BOOTSTRAP_CONFIG = {
 
 # =========================================================
 # RÉFÉRENCES TERRAIN - INDICE E1C CAMÉRA
-# Calibration V1 basée sur 4 sites de référence
-# - Etréchy    = bas
-# - Lavallière = intermédiaire
-# - La Peyruche = bon
-# - Purcari    = excellent
+
 # =========================================================
 
-E1C_REFERENCE_CAM = {
+E1C_REFERENCE = {
     "Shannon": {
-        "min": 1.07,   # Etréchy
-        "mid": 1.79,   # Lavallière
+        "min": 1.0,   # Diane
+        "mid": 1.36,   # Etrechy
         "good": 1.88,  # La Peyruche
-        "max": 2.40    # Purcari
+        "max": 2.45    # Purcari
     },
     "Pielou": {
-        "min": 0.41,   # Etréchy
-        "mid": 0.59,   # Lavallière
-        "good": 0.57,  # La Peyruche
-        "max": 0.75    # Purcari
+        "min": 0.38,   # Diane
+        "mid": 0.57,   # La Peyruche
+        "good": 0.67,  # Boston
+        "max": 0.76    # Purcari
     },
     "Simpson": {
-        "min": 1.85,   # Etréchy
-        "mid": 4.0,    # Lavallière
+        "min": 2.1,   # Castries
+        "mid": 3.9,    # Lavallière
         "good": 4.7,   # La Peyruche
-        "max": 8.5     # Purcari
+        "max": 9.1     # Purcari
     }
 }
 
 # Pondérations de l'indice E1C
-E1C_WEIGHTS_CAM = {
-    "Shannon": 0.40,
-    "Pielou": 0.30,
-    "Stabilite": 0.20,
-    "Simpson": 0.10
+E1C_WEIGHTS = {
+    "Shannon": 0.31,
+    "Pielou": 0.12,
+    "Stabilite": 0.19,
+    "Simpson": 0.38
 }
 
 # Seuils de lecture du score E1C
-E1C_THRESHOLDS_CAM = {
+E1C_THRESHOLDS = {
     "low": 40,
     "medium": 60,
     "high": 80
 }
 
 # Seuils de lecture complémentaires du diagnostic
-DIAG_THRESHOLDS_CAM = {
+DIAG_THRESHOLDS = {
     "dominance_good": 0.50,
     "dominance_medium": 0.70,
     "cv_stable": 0.30,
@@ -87,63 +81,28 @@ LEGENDE_SITES = (
 
 # --- CONFIGURATION DES RÉFÉRENCES ÉCOLOGIQUES ---
 
-REFERENCES_INDICES = {
-    "Shannon": {
-        "nom": "Indice de Shannon",
-        "mode": "standard",
-        "min_tick": 1,
-        "max_tick": 3,
-        "sites": [
-            {"label": "ET", "score": 1.07, "err": 0.04, "desc": "Etrechy, zone périurbaine"},
-            {"label": "LV", "score": 1.79, "err": 0.04, "desc": "Lavallière, parc d’hôtel"},
-            {"label": "LP", "score": 1.88, "err": 0.04, "desc": "La Peyruche, vignoble bio"}
-        ]
-    },
-    "Richesse": {
-        "nom": "Richesse spécifique",
-        "mode": "large",
-        "min_tick": 10,
-        "max_tick": 30,
-        "sites": [
-            {"label": "ET", "score": 13, "err": 1, "desc": "Etrechy, zone périurbaine"},
-            {"label": "LV", "score": 21, "err": 1, "desc": "Lavallière, parc d’hôtel"},
-            {"label": "LP", "score": 27, "err": 2, "desc": "La Peyruche, vignoble bio"}
-        ]
-    },
-    "InvD": {
-        "nom": "Nombre effectif (1 / D)",
-        "mode": "standard",
-        "min_tick": 1,
-        "max_tick": 10,
-        "sites": [
-            {"label": "ET", "score": 1.85, "err": 0.06, "desc": "Etrechy, zone périurbaine"},
-            {"label": "LV", "score": 4.0, "err": 0.2, "desc": "Lavallière, parc d’hôtel"},
-            {"label": "LP", "score": 4.7, "err": 0.2, "desc": "La Peyruche, vignoble bio"}
-        ]
-    },
-    "Pielou": {
-        "nom": "Équitabilité de Piélou",
-        "mode": "tiny",
-        "min_tick": 0,
-        "max_tick": 1,
-        "sites": [
-            {"label": "ET", "score": 0.41, "err": 0.02, "desc": "Etrechy, zone périurbaine"},
-            {"label": "LV", "score": 0.59, "err": 0.02, "desc": "Lavallière, parc d’hôtel"},
-            {"label": "LP", "score": 0.57, "err": 0.02, "desc": "La Peyruche, vignoble bio"}
-        ]
-    },
-"IAJC": {
-    "nom": "Indice d'Activité (IAJC)",
-    "mode": "standard",
-    "min_tick": 1,
-    "max_tick": 3,
-    "sites": [
-        {"label": "ET", "score": 1.92, "err": 0.04},
-        {"label": "LV", "score": 2.23, "err": 0.16},
-        {"label": "LP", "score": 1.36, "err": 0.10}
-    ]
-}
-}
+#@st.cache_data
+def load_references_indices():
+    """
+    Charge les références écologiques depuis un fichier JSON.
+    """
+    path = "datasets/references_indices_cam.json"
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Ignore les éventuels champs de méta/commentaire
+        data = {k: v for k, v in data.items() if not str(k).startswith("_")}
+
+        return data
+
+    except Exception as e:
+        st.error(f"Impossible de charger le fichier de références : {e}")
+        st.stop()
+
+
+REFERENCES_INDICES = load_references_indices()
 
 
 # 1. CONFIGURATION DE LA PAGE
@@ -253,6 +212,7 @@ def load_data(uploaded_file):
     - définir UNE logique temporelle commune pour tout le dashboard
     """
     df = pd.read_csv(uploaded_file, sep=None, engine='python')
+
 
     # ---------------------------------------------------------
     # 1. Harmonisation des noms de colonnes
@@ -2292,20 +2252,20 @@ def compute_indice_e1c_calibrated(bootstrap_results, df_dist_shannon):
     # Normalisation sur références terrain
     score_shannon = normalize_score(
         shannon_mean,
-        E1C_REFERENCE_CAM["Shannon"]["min"],
-        E1C_REFERENCE_CAM["Shannon"]["max"]
+        E1C_REFERENCE["Shannon"]["min"],
+        E1C_REFERENCE["Shannon"]["max"]
     )
 
     score_pielou = normalize_score(
         pielou_mean,
-        E1C_REFERENCE_CAM["Pielou"]["min"],
-        E1C_REFERENCE_CAM["Pielou"]["max"]
+        E1C_REFERENCE["Pielou"]["min"],
+        E1C_REFERENCE["Pielou"]["max"]
     )
 
     score_simpson = normalize_score(
         simpson_mean,
-        E1C_REFERENCE_CAM["Simpson"]["min"],
-        E1C_REFERENCE_CAM["Simpson"]["max"]
+        E1C_REFERENCE["Simpson"]["min"],
+        E1C_REFERENCE["Simpson"]["max"]
     )
 
     # Stabilité temporelle
@@ -2322,10 +2282,10 @@ def compute_indice_e1c_calibrated(bootstrap_results, df_dist_shannon):
 
     # Score final pondéré
     score_e1c = (
-        score_shannon * E1C_WEIGHTS_CAM["Shannon"] +
-        score_pielou * E1C_WEIGHTS_CAM["Pielou"] +
-        score_stabilite * E1C_WEIGHTS_CAM["Stabilite"] +
-        score_simpson * E1C_WEIGHTS_CAM["Simpson"]
+        score_shannon * E1C_WEIGHTS["Shannon"] +
+        score_pielou * E1C_WEIGHTS["Pielou"] +
+        score_stabilite * E1C_WEIGHTS["Stabilite"] +
+        score_simpson * E1C_WEIGHTS["Simpson"]
     )
 
     return {
@@ -2342,14 +2302,14 @@ def classify_e1c(score_e1c):
     """
     Retourne une classe de lecture du score E1C.
     """
-    if score_e1c >= E1C_THRESHOLDS_CAM["high"]:
-        return "Excellent (type Purcari)"
-    elif score_e1c >= E1C_THRESHOLDS_CAM["medium"]:
-        return "Bon (type La Peyruche)"
-    elif score_e1c >= E1C_THRESHOLDS_CAM["low"]:
-        return "Intermédiaire (type Lavallière)"
+    if score_e1c >= E1C_THRESHOLDS["high"]:
+        return "Excellent"
+    elif score_e1c >= E1C_THRESHOLDS["medium"]:
+        return "Bon"
+    elif score_e1c >= E1C_THRESHOLDS["low"]:
+        return "Intermédiaire"
     else:
-        return "Faible (type Etréchy)"
+        return "Faible"
 
 def build_sites_map_figure(df_input, zoom=12):
     """
@@ -3699,8 +3659,8 @@ if not df.empty:
                      "IAJC": iajc_b_toutes_m, "I_err": iajc_b_toutes_s},
                     {"Site": "SITE (Sauvages)", "Shannon": stats_b_wild['H'][0], "S_err": stats_b_wild['H'][1],
                      "IAJC": iajc_b_wild_m, "I_err": iajc_b_wild_s},
-                    {"Site": "Etrechy (Toutes)", "Shannon": 1.07, "S_err": 0.04, "IAJC": 1.92, "I_err": 0.04},
-                    {"Site": "Lavallière (Toutes)", "Shannon": 1.79, "S_err": 0.04, "IAJC": 2.23, "I_err": 0.16},
+                    {"Site": "Etrechy (Toutes)", "Shannon": 1.36, "S_err": 0.04, "IAJC": 1.92, "I_err": 0.04},
+                    {"Site": "Lavallière (Toutes)", "Shannon": 1.80, "S_err": 0.04, "IAJC": 2.23, "I_err": 0.16},
                     {"Site": "La Peyruche (Toutes)", "Shannon": 1.88, "S_err": 0.04, "IAJC": 1.36, "I_err": 0.10}
                 ]
                 df_plot = pd.DataFrame(comparison_data)
@@ -4992,16 +4952,16 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
         # ---------------------------------------------------------
         # 4. Interprétation globale
         # ---------------------------------------------------------
-        if score_e1c >= E1C_THRESHOLDS_CAM["high"]:
-            st.success("🟢 Indice E1C excellent : site comparable aux meilleurs niveaux observés, de type Purcari.")
-        elif score_e1c >= E1C_THRESHOLDS_CAM["medium"]:
-            st.success("🟢 Indice E1C bon : site de bon niveau écologique, proche d’un profil type La Peyruche.")
-        elif score_e1c >= E1C_THRESHOLDS_CAM["low"]:
+        if score_e1c >= E1C_THRESHOLDS["high"]:
+            st.success("🟢 Indice E1C excellent : site comparable aux meilleurs niveaux observés.")
+        elif score_e1c >= E1C_THRESHOLDS["medium"]:
+            st.success("🟢 Indice E1C bon : site de bon niveau écologique.")
+        elif score_e1c >= E1C_THRESHOLDS["low"]:
             st.warning(
-                "🟠 Indice E1C intermédiaire : site fonctionnel mais encore perfectible, proche d’un profil type Lavallière.")
+                "🟠 Indice E1C intermédiaire : site fonctionnel mais encore perfectible.")
         else:
             st.error(
-                "🔴 Indice E1C faible : site sous pression ou écologiquement simplifié, proche d’un profil type Etréchy.")
+                "🔴 Indice E1C faible : site sous pression ou écologiquement simplifié.")
 
         # ---------------------------------------------------------
         # 5. Décomposition du score E1C
@@ -5045,9 +5005,9 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
                 f"{dominance_ratio * 100:.1f}%"
             )
 
-            if dominance_ratio < DIAG_THRESHOLDS_CAM["dominance_good"]:
+            if dominance_ratio < DIAG_THRESHOLDS["dominance_good"]:
                 st.success("🟢 Peuplement bien réparti")
-            elif dominance_ratio < DIAG_THRESHOLDS_CAM["dominance_medium"]:
+            elif dominance_ratio < DIAG_THRESHOLDS["dominance_medium"]:
                 st.warning("🟠 Dominance modérée")
             else:
                 st.error("🔴 Forte dominance de quelques espèces")
@@ -5077,9 +5037,9 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
                 f"{prop_nuit_diag:.1f}%"
             )
 
-            if prop_nuit_diag < DIAG_THRESHOLDS_CAM["nocturnite_low"]:
+            if prop_nuit_diag < DIAG_THRESHOLDS["nocturnite_low"]:
                 st.success("🟢 Activité majoritairement diurne")
-            elif prop_nuit_diag < DIAG_THRESHOLDS_CAM["nocturnite_medium"]:
+            elif prop_nuit_diag < DIAG_THRESHOLDS["nocturnite_medium"]:
                 st.warning("🟠 Nocturnité modérée")
             else:
                 st.error("🔴 Forte nocturnité")
@@ -5134,9 +5094,9 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
 
         # Lecture stabilité
         if pd.notna(cv_shannon):
-            if cv_shannon < DIAG_THRESHOLDS_CAM["cv_stable"]:
+            if cv_shannon < DIAG_THRESHOLDS["cv_stable"]:
                 commentaires.append("Le fonctionnement écologique apparaît stable dans le temps.")
-            elif cv_shannon < DIAG_THRESHOLDS_CAM["cv_medium"]:
+            elif cv_shannon < DIAG_THRESHOLDS["cv_medium"]:
                 commentaires.append("La dynamique temporelle est modérément variable.")
             else:
                 commentaires.append("La variabilité temporelle est élevée, suggérant une instabilité écologique.")
@@ -5144,17 +5104,17 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
             commentaires.append("La stabilité temporelle n’est pas calculable sur la période sélectionnée.")
 
         # Lecture dominance
-        if dominance_ratio < DIAG_THRESHOLDS_CAM["dominance_good"]:
+        if dominance_ratio < DIAG_THRESHOLDS["dominance_good"]:
             commentaires.append("Le peuplement est relativement bien réparti entre les espèces.")
-        elif dominance_ratio < DIAG_THRESHOLDS_CAM["dominance_medium"]:
+        elif dominance_ratio < DIAG_THRESHOLDS["dominance_medium"]:
             commentaires.append("Quelques espèces structurent fortement le peuplement.")
         else:
             commentaires.append("Le site est fortement dominé par un petit nombre d'espèces.")
 
         # Lecture pression
-        if prop_nuit_diag < DIAG_THRESHOLDS_CAM["nocturnite_low"]:
+        if prop_nuit_diag < DIAG_THRESHOLDS["nocturnite_low"]:
             commentaires.append("L'activité majoritairement diurne suggère une bonne quiétude.")
-        elif prop_nuit_diag < DIAG_THRESHOLDS_CAM["nocturnite_medium"]:
+        elif prop_nuit_diag < DIAG_THRESHOLDS["nocturnite_medium"]:
             commentaires.append("La nocturnité est modérée, avec un possible effet de pression humaine.")
         else:
             commentaires.append("La forte nocturnité peut traduire un évitement de l'activité humaine diurne.")
@@ -5172,9 +5132,9 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
         recommandations = []
 
         # Forces
-        if score_e1c >= E1C_THRESHOLDS_CAM["high"]:
+        if score_e1c >= E1C_THRESHOLDS["high"]:
             forces.append("Indice E1C excellent, proche d’un site de référence haut type Purcari.")
-        elif score_e1c >= E1C_THRESHOLDS_CAM["medium"]:
+        elif score_e1c >= E1C_THRESHOLDS["medium"]:
             forces.append("Indice E1C bon, cohérent avec un site de bon niveau écologique.")
         if score_shannon >= 60:
             forces.append("Diversité spécifique satisfaisante à élevée.")
@@ -5182,42 +5142,42 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
             forces.append("Répartition équilibrée des abondances.")
         if score_simpson >= 60:
             forces.append("Bon nombre effectif d’espèces.")
-        if pd.notna(cv_shannon) and cv_shannon < DIAG_THRESHOLDS_CAM["cv_stable"]:
+        if pd.notna(cv_shannon) and cv_shannon < DIAG_THRESHOLDS["cv_stable"]:
             forces.append("Bonne stabilité temporelle des indices.")
-        if dominance_ratio < DIAG_THRESHOLDS_CAM["dominance_good"]:
+        if dominance_ratio < DIAG_THRESHOLDS["dominance_good"]:
             forces.append("Absence de forte domination par un petit nombre d'espèces.")
-        if prop_nuit_diag < DIAG_THRESHOLDS_CAM["nocturnite_low"]:
+        if prop_nuit_diag < DIAG_THRESHOLDS["nocturnite_low"]:
             forces.append("Activité majoritairement diurne, compatible avec une bonne quiétude.")
 
         # Vigilances
-        if score_e1c < E1C_THRESHOLDS_CAM["low"]:
-            vigilances.append("Indice E1C faible, proche d’un profil de site bas type Etréchy.")
+        if score_e1c < E1C_THRESHOLDS["low"]:
+            vigilances.append("Indice E1C faible, proche d’un profil de site bas.")
         if score_shannon < 40:
             vigilances.append("Diversité spécifique limitée.")
         if score_pielou < 40:
             vigilances.append("Répartition inégale des abondances.")
         if score_simpson < 40:
             vigilances.append("Nombre effectif d’espèces faible.")
-        if pd.notna(cv_shannon) and cv_shannon >= DIAG_THRESHOLDS_CAM["cv_medium"]:
+        if pd.notna(cv_shannon) and cv_shannon >= DIAG_THRESHOLDS["cv_medium"]:
             vigilances.append("Variabilité temporelle élevée, traduisant une instabilité possible.")
-        if dominance_ratio >= DIAG_THRESHOLDS_CAM["dominance_medium"]:
+        if dominance_ratio >= DIAG_THRESHOLDS["dominance_medium"]:
             vigilances.append("Forte domination de quelques espèces.")
-        if prop_nuit_diag >= DIAG_THRESHOLDS_CAM["nocturnite_medium"]:
+        if prop_nuit_diag >= DIAG_THRESHOLDS["nocturnite_medium"]:
             vigilances.append("Nocturnité élevée pouvant traduire un évitement de l'activité humaine diurne.")
 
         # Recommandations
-        if score_e1c < E1C_THRESHOLDS_CAM["high"]:
+        if score_e1c < E1C_THRESHOLDS["high"]:
             recommandations.append(
                 "Poursuivre le suivi pour confirmer la trajectoire écologique du site dans le temps.")
         if score_shannon < 40 or score_simpson < 40:
             recommandations.append(
                 "Renforcer la diversité des habitats et la connectivité écologique à l’échelle du site.")
-        if dominance_ratio >= DIAG_THRESHOLDS_CAM["dominance_medium"]:
+        if dominance_ratio >= DIAG_THRESHOLDS["dominance_medium"]:
             recommandations.append("Examiner les conditions favorisant la sur-dominance de certaines espèces.")
-        if pd.notna(cv_shannon) and cv_shannon >= DIAG_THRESHOLDS_CAM["cv_medium"]:
+        if pd.notna(cv_shannon) and cv_shannon >= DIAG_THRESHOLDS["cv_medium"]:
             recommandations.append(
                 "Analyser les facteurs saisonniers ou de gestion pouvant expliquer l’instabilité observée.")
-        if prop_nuit_diag >= DIAG_THRESHOLDS_CAM["nocturnite_medium"]:
+        if prop_nuit_diag >= DIAG_THRESHOLDS["nocturnite_medium"]:
             recommandations.append(
                 "Évaluer les sources potentielles de dérangement diurne : fréquentation, bruit, travaux, circulation.")
 
@@ -5252,7 +5212,7 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
             "L’indice E1C (Every1Counts) combine la diversité (Shannon), "
             "l’équilibre des abondances (Piélou), la structure du peuplement (Simpson 1/D) "
             "et la stabilité temporelle. La calibration V1 repose sur les sites de référence "
-            "Etréchy (bas), Lavallière (intermédiaire), La Peyruche (bon) et Purcari (excellent)."
+            
         )
 
     # ---------------- TAB EXPORT ----------------

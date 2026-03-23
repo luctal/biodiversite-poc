@@ -27,65 +27,84 @@ LEGENDE_SITES = (
     "LP = La Peyruche (vignoble bio)"
 )
 
-# --- CONFIGURATION DES RÉFÉRENCES ÉCOLOGIQUES ---
-
-REFERENCES_INDICES = {
+# =========================================================
+# RÉFÉRENCES TERRAIN - INDICE E1C SON
+# Calibration V1 basée sur 4 sites de référence
+# - Etréchy    = bas
+# - Lavallière = intermédiaire
+# - La Peyruche = excellent
+# - Purcari    = bon
+# =========================================================
+E1C_REFERENCE_SOUND = {
     "Shannon": {
-        "nom": "Indice de Shannon",
-        "mode": "standard",
-        "min_tick": 2,
-        "max_tick": 4,
-        "sites": [
-            {"label": "ET", "score": 3.35, "err": 0.02, "desc": "Etrechy, zone périurbaine"},
-            {"label": "LV", "score": 3.29, "err": 0.02, "desc": "Lavallière, parc d’hôtel"},
-            {"label": "LP", "score": 3.32, "err": 0.02, "desc": "La Peyruche, vignoble bio"}
-        ]
-    },
-    "Richesse": {
-        "nom": "Richesse spécifique",
-        "mode": "large",
-        "min_tick": 80,
-        "max_tick": 120,
-        "sites": [
-            {"label": "ET", "score": 92, "err": 3, "desc": "Etrechy, zone périurbaine"},
-            {"label": "LV", "score": 87, "err": 3, "desc": "Lavallière, parc d’hôtel"},
-            {"label": "LP", "score": 108, "err": 4, "desc": "La Peyruche, vignoble bio"}
-        ]
-    },
-    "InvD": {
-        "nom": "Nombre effectif (1 / D)",
-        "mode": "standard",
-        "min_tick": 5,
-        "max_tick": 15,
-        "sites": [
-            {"label": "ET", "score": 17.4, "err": 0.4, "desc": "Etrechy, zone périurbaine"},
-            {"label": "LV", "score": 16.6, "err": 0.4, "desc": "Lavallière, parc d’hôtel"},
-            {"label": "LP", "score": 12.6, "err": 0.4, "desc": "La Peyruche, vignoble bio"}
-        ]
+        "min": 3.29,   # Lavallière
+        "mid": 3.32,   # La Peyruche
+        "good": 3.58,  # Purcari
+        "max": 3.65    # pas encore observé
     },
     "Pielou": {
-        "nom": "Équitabilité de Piélou",
-        "mode": "tiny",
-        "min_tick": 0,
-        "max_tick": 1,
-        "sites": [
-            {"label": "ET", "score": 0.74, "err": 0.01, "desc": "Etrechy, zone périurbaine"},
-            {"label": "LV", "score": 0.74, "err": 0.01, "desc": "Lavallière, parc d’hôtel"},
-            {"label": "LP", "score": 0.71, "err": 0.01, "desc": "La Peyruche, vignoble bio"}
-        ]
+        "min": 0.71,
+        "mid": 0.73,
+        "good": 0.75,
+        "max": 0.77
     },
-"IAJC": {
-    "nom": "Indice d'Activité (IAJC)",
-    "mode": "large",
-    "min_tick": 5,
-    "max_tick": 25,
-    "sites": [
-        {"label": "ET", "score": 20.1, "err": 0.0},
-        {"label": "LV", "score": 12.5, "err": 0.0},
-        {"label": "LP", "score": 8.4, "err": 0.0}
-    ]
+    "Simpson": {
+        "min": 12.7,
+        "mid": 16.2,
+        "good": 27.9,
+        "max": 16.2
+    }
 }
+
+E1C_WEIGHTS_SOUND = {
+    "Shannon": 0.18,
+    "Pielou": 0.05,
+    "Stabilite": 0.45,
+    "Simpson": 0.32
 }
+
+E1C_THRESHOLDS_SOUND = {
+    "low": 40,
+    "medium": 60,
+    "high": 80
+}
+
+DIAG_THRESHOLDS_SOUND = {
+    "dominance_good": 0.50,
+    "dominance_medium": 0.70,
+    "cv_stable": 0.30,
+    "cv_medium": 0.50,
+    "nocturnite_low": 50,
+    "nocturnite_medium": 70
+}
+
+
+# =========================================================
+# CHARGEMENT DES DONNEES DE REFERENCE
+# =========================================================
+
+def load_references_indices(path):
+    import json
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Ignore _comment
+        data = {k: v for k, v in data.items() if not str(k).startswith("_")}
+
+        return data
+
+    except Exception as e:
+        st.error(f"Erreur chargement références : {e}")
+        st.stop()
+
+
+# 👇 IMPORTANT : EN DEHORS DE LA FONCTION
+REFERENCES_INDICES = load_references_indices(
+    "datasets/references_indices_sound.json"
+)
+         
 
 
 # 1. CONFIGURATION DE LA PAGE
@@ -169,7 +188,10 @@ def load_data(uploaded_file):
 
         'Hotspot': 'site',
         'Site': 'site',
-        'site': 'site'
+        'site': 'site',
+
+        'Indice de confiance BirdNet': 'Birdnet_confidence_index'
+        
     }
 
     df = df.rename(columns=mapping)
@@ -1878,6 +1900,8 @@ def prepare_long_term_summary(df_input, grain="M"):
 
     return df_dist_shannon
 
+" A SUPPRIMER"
+
 def compute_indice_e1c(bootstrap_results, df_dist_shannon):
     """
     Calcule l’Indice E1C (Every1Counts), un score écologique global simplifié.
@@ -1951,6 +1975,109 @@ def compute_indice_e1c(bootstrap_results, df_dist_shannon):
     )
 
     return float(score_e1c), float(cv_shannon) if pd.notna(cv_shannon) else np.nan, float(score_stabilite)
+
+# ---------------------------------------------------------
+# FONCTION : calcul de l'indice E1C calibré SON
+# ---------------------------------------------------------
+def compute_indice_e1c_calibrated_sound(bootstrap_results, df_dist_shannon):
+    """
+    Calcule l'Indice E1C calibré pour les données acoustiques.
+
+    Composantes :
+    - Shannon  : 40%
+    - Piélou   : 30%
+    - Stabilité: 20%
+    - Simpson  : 10%
+
+    Chaque composante est ramenée sur 100,
+    puis combinée selon les pondérations.
+    """
+    if not bootstrap_results or df_dist_shannon.empty:
+        return {
+            "score_e1c": 0.0,
+            "cv_shannon": np.nan,
+            "score_stabilite": 0.0,
+            "score_shannon": 0.0,
+            "score_pielou": 0.0,
+            "score_simpson": 0.0
+        }
+
+    # ---------------------------------------------------------
+    # 1. Valeurs bootstrapées
+    # ---------------------------------------------------------
+    shannon_mean = bootstrap_results['H'][0]
+    pielou_mean = bootstrap_results['J'][0]
+    simpson_mean = bootstrap_results['InvD'][0]
+
+    # ---------------------------------------------------------
+    # 2. Normalisation sur les références son
+    # ---------------------------------------------------------
+    score_shannon = normalize_score(
+        shannon_mean,
+        E1C_REFERENCE_SOUND["Shannon"]["min"],
+        E1C_REFERENCE_SOUND["Shannon"]["max"]
+    )
+
+    score_pielou = normalize_score(
+        pielou_mean,
+        E1C_REFERENCE_SOUND["Pielou"]["min"],
+        E1C_REFERENCE_SOUND["Pielou"]["max"]
+    )
+
+    score_simpson = normalize_score(
+        simpson_mean,
+        E1C_REFERENCE_SOUND["Simpson"]["min"],
+        E1C_REFERENCE_SOUND["Simpson"]["max"]
+    )
+
+    # ---------------------------------------------------------
+    # 3. Calcul de la stabilité temporelle
+    # ---------------------------------------------------------
+    shannon_weekly = df_dist_shannon['shannon_val'].dropna()
+
+    if len(shannon_weekly) >= 2 and shannon_weekly.mean() > 0:
+        cv_shannon = shannon_weekly.std() / shannon_weekly.mean()
+
+        # CV faible = meilleure stabilité
+        score_stabilite = max(0.0, min(100.0, (1 - min(cv_shannon, 1.0)) * 100))
+    else:
+        cv_shannon = np.nan
+        score_stabilite = 0.0
+
+    # ---------------------------------------------------------
+    # 4. Score final pondéré
+    # ---------------------------------------------------------
+    score_e1c = (
+        score_shannon * E1C_WEIGHTS_SOUND["Shannon"] +
+        score_pielou * E1C_WEIGHTS_SOUND["Pielou"] +
+        score_stabilite * E1C_WEIGHTS_SOUND["Stabilite"] +
+        score_simpson * E1C_WEIGHTS_SOUND["Simpson"]
+    )
+
+    return {
+        "score_e1c": float(score_e1c),
+        "cv_shannon": float(cv_shannon) if pd.notna(cv_shannon) else np.nan,
+        "score_stabilite": float(score_stabilite),
+        "score_shannon": float(score_shannon),
+        "score_pielou": float(score_pielou),
+        "score_simpson": float(score_simpson)
+    }
+
+# ---------------------------------------------------------
+# FONCTION : lecture du score E1C son
+# ---------------------------------------------------------
+def classify_e1c_sound(score_e1c):
+    """
+    Retourne une classe de lecture du score E1C son.
+    """
+    if score_e1c >= E1C_THRESHOLDS_SOUND["high"]:
+        return "Excellent"
+    elif score_e1c >= E1C_THRESHOLDS_SOUND["medium"]:
+        return "Bon"
+    elif score_e1c >= E1C_THRESHOLDS_SOUND["low"]:
+        return "Intermédiaire"
+    else:
+        return "Faible"
 
 def compute_species_dominance(df_input, top_n=3):
     """
@@ -3082,6 +3209,25 @@ def compute_linear_trend(df_input, x_col, y_col):
         "intercept": float(intercept),
         "r2": float(r2) if pd.notna(r2) else np.nan
     }
+
+# ---------------------------------------------------------
+# FONCTION : normaliser une valeur sur une échelle 0-100
+# ---------------------------------------------------------
+def normalize_score(value, vmin, vmax):
+    """
+    Ramène une valeur sur une échelle 0-100 entre une borne min et max.
+    Toute valeur en dessous de min est ramenée à 0.
+    Toute valeur au-dessus de max est ramenée à 100.
+    """
+    if pd.isna(value):
+        return 0.0
+
+    if vmax <= vmin:
+        return 0.0
+
+    score = (value - vmin) / (vmax - vmin)
+    score = max(0.0, min(1.0, score))
+    return float(score * 100)
 
 # 8. CALCULS PRINCIPAUX
 if not df.empty:
@@ -4750,17 +4896,26 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
         df_dist_shannon_diag = compute_weekly_shannon_distribution(df)
 
         # ---------------------------------------------------------
-        # 2. Calcul de l’indice E1C
+        # Calcul de l’indice E1C calibré SON
         # ---------------------------------------------------------
-        score_e1c, cv_shannon, score_stabilite = compute_indice_e1c(
+        e1c_results = compute_indice_e1c_calibrated_sound(
             bootstrap_results,
             df_dist_shannon_diag
         )
 
+        score_e1c = e1c_results["score_e1c"]
+        cv_shannon = e1c_results["cv_shannon"]
+        score_stabilite = e1c_results["score_stabilite"]
+        score_shannon = e1c_results["score_shannon"]
+        score_pielou = e1c_results["score_pielou"]
+        score_simpson = e1c_results["score_simpson"]
+
+        classe_e1c = classify_e1c_sound(score_e1c)
+
         # ---------------------------------------------------------
         # 3. Affichage des indicateurs principaux
         # ---------------------------------------------------------
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
 
         with c1:
             st.metric(
@@ -4769,6 +4924,12 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
             )
 
         with c2:
+            st.metric(
+                "Classe écologique",
+                classe_e1c
+            )
+
+        with c3:
             if pd.notna(cv_shannon):
                 st.metric(
                     "Stabilité temporelle (CV Shannon)",
@@ -4780,21 +4941,65 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
                     "n.c."
                 )
 
-        with c3:
+        with c4:
             st.metric(
                 "Score de stabilité",
-                f"{score_stabilite:.2f}"
+                f"{score_stabilite:.0f} / 100"
             )
 
         # ---------------------------------------------------------
         # 4. Interprétation globale
         # ---------------------------------------------------------
-        if score_e1c >= 70:
-            st.success("🟢 Indice E1C élevé : écosystème équilibré et fonctionnel.")
-        elif score_e1c >= 50:
-            st.warning("🟠 Indice E1C intermédiaire : écosystème fonctionnel mais perfectible.")
+        if score_e1c >= E1C_THRESHOLDS_SOUND["high"]:
+            st.success("🟢 Indice E1C excellent : site parmi les meilleurs niveaux observés dans le référentiel acoustique.")
+        elif score_e1c >= E1C_THRESHOLDS_SOUND["medium"]:
+            st.success("🟢 Indice E1C bon : site de bon niveau écologique dans le référentiel acoustique.")
+        elif score_e1c >= E1C_THRESHOLDS_SOUND["low"]:
+            st.warning("🟠 Indice E1C intermédiaire : site fonctionnel mais encore perfectible.")
         else:
-            st.error("🔴 Indice E1C faible : écosystème sous pression ou déséquilibré.")
+            st.error("🔴 Indice E1C faible : site acoustiquement simplifié ou sous pression.")
+
+        # ---------------------------------------------------------
+        # 5. Décomposition du score E1C
+        # ---------------------------------------------------------
+        st.markdown("### 🧩 Décomposition de l’Indice E1C")
+
+        df_e1c_components = pd.DataFrame({
+            "Composante": [
+                "Diversité (Shannon)",
+                "Équilibre (Piélou)",
+                "Structure (Simpson 1/D)",
+                "Stabilité temporelle"
+            ],
+            "Score /100": [
+                score_shannon,
+                score_pielou,
+                score_simpson,
+                score_stabilite
+            ]
+        })
+
+        fig_e1c = px.bar(
+            df_e1c_components,
+            x="Composante",
+            y="Score /100",
+            text="Score /100",
+            template="none"
+        )
+
+        fig_e1c.update_traces(
+            texttemplate="%{y:.0f}",
+            textposition="outside"
+        )
+
+        fig_e1c.update_layout(
+            paper_bgcolor=C_FOND,
+            plot_bgcolor=C_FOND,
+            yaxis=dict(range=[0, 110]),
+            showlegend=False
+        )
+
+        st.plotly_chart(fig_e1c, use_container_width=True)
 
         # ---------------------------------------------------------
         # 5. Dominance des espèces
@@ -4919,42 +5124,51 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
         vigilances = []
         recommandations = []
 
-        if score_e1c >= 70:
-            forces.append("Indice E1C élevé, traduisant un fonctionnement écologique globalement favorable.")
-        if bootstrap_results and bootstrap_results['H'][0] >= 1.8:
-            forces.append("Diversité spécifique élevée sur la période analysée.")
-        if bootstrap_results and bootstrap_results['J'][0] >= 0.6:
-            forces.append("Répartition équilibrée des abondances entre les espèces.")
-        if pd.notna(cv_shannon) and cv_shannon < 0.2:
-            forces.append("Bonne stabilité temporelle des indices de biodiversité.")
-        if dominance_ratio < 0.40:
+        # Forces
+        if score_e1c >= E1C_THRESHOLDS_SOUND["high"]:
+            forces.append("Indice E1C excellent dans le référentiel acoustique.")
+        elif score_e1c >= E1C_THRESHOLDS_SOUND["medium"]:
+            forces.append("Indice E1C bon, cohérent avec un site de bon niveau écologique.")
+        if score_shannon >= 60:
+            forces.append("Diversité spécifique satisfaisante à élevée.")
+        if score_pielou >= 60:
+            forces.append("Répartition équilibrée des abondances.")
+        if score_simpson >= 60:
+            forces.append("Bon nombre effectif d’espèces.")
+        if pd.notna(cv_shannon) and cv_shannon < DIAG_THRESHOLDS_SOUND["cv_stable"]:
+            forces.append("Bonne stabilité temporelle des indices.")
+        if dominance_ratio < DIAG_THRESHOLDS_SOUND["dominance_good"]:
             forces.append("Absence de forte domination par un petit nombre d'espèces.")
-        if prop_nuit_diag < 50:
-            forces.append("Activité majoritairement diurne, compatible avec une bonne quiétude du site.")
+        if prop_nuit_diag < DIAG_THRESHOLDS_SOUND["nocturnite_low"]:
+            forces.append("Structure horaire majoritairement diurne.")
 
-        if score_e1c < 50:
-            vigilances.append("Indice E1C faible, suggérant un site sous pression ou déséquilibré.")
-        if bootstrap_results and bootstrap_results['H'][0] < 1.3:
+        # Vigilances
+        if score_e1c < E1C_THRESHOLDS_SOUND["low"]:
+            vigilances.append("Indice E1C faible dans le référentiel acoustique.")
+        if score_shannon < 40:
             vigilances.append("Diversité spécifique limitée.")
-        if bootstrap_results and bootstrap_results['J'][0] < 0.4:
-            vigilances.append("Répartition très inégale des abondances, avec domination marquée de certaines espèces.")
-        if pd.notna(cv_shannon) and cv_shannon >= 0.4:
-            vigilances.append("Variabilité temporelle élevée, traduisant une instabilité écologique possible.")
-        if dominance_ratio >= 0.60:
-            vigilances.append("Forte domination de quelques espèces au sein du peuplement.")
-        if prop_nuit_diag >= 70:
-            vigilances.append("Nocturnité élevée pouvant traduire un évitement de l'activité humaine diurne.")
+        if score_pielou < 40:
+            vigilances.append("Répartition inégale des abondances.")
+        if score_simpson < 40:
+            vigilances.append("Nombre effectif d’espèces faible.")
+        if pd.notna(cv_shannon) and cv_shannon >= DIAG_THRESHOLDS_SOUND["cv_medium"]:
+            vigilances.append("Variabilité temporelle élevée, traduisant une instabilité possible.")
+        if dominance_ratio >= DIAG_THRESHOLDS_SOUND["dominance_medium"]:
+            vigilances.append("Forte domination de quelques espèces.")
+        if prop_nuit_diag >= DIAG_THRESHOLDS_SOUND["nocturnite_medium"]:
+            vigilances.append("Structure horaire fortement nocturne, à interpréter selon les espèces et la saison.")
 
-        if score_e1c < 70:
+        # Recommandations
+        if score_e1c < E1C_THRESHOLDS_SOUND["high"]:
             recommandations.append("Poursuivre le suivi pour confirmer la trajectoire écologique du site dans le temps.")
-        if dominance_ratio >= 0.60:
-            recommandations.append("Examiner les conditions de milieu favorisant la sur-dominance de certaines espèces.")
-        if pd.notna(cv_shannon) and cv_shannon >= 0.4:
-            recommandations.append("Analyser les facteurs saisonniers ou de gestion pouvant expliquer l'instabilité observée.")
-        if prop_nuit_diag >= 70:
-            recommandations.append("Évaluer les sources potentielles de dérangement diurne : fréquentation, bruit, travaux, circulation.")
-        if bootstrap_results and bootstrap_results['H'][0] < 1.3:
-            recommandations.append("Renforcer la diversité des habitats et la connectivité écologique à l'échelle du site.")
+        if score_shannon < 40 or score_simpson < 40:
+            recommandations.append("Renforcer la diversité des habitats et la connectivité écologique autour du site.")
+        if dominance_ratio >= DIAG_THRESHOLDS_SOUND["dominance_medium"]:
+            recommandations.append("Examiner les facteurs favorisant la sur-dominance de certaines espèces.")
+        if pd.notna(cv_shannon) and cv_shannon >= DIAG_THRESHOLDS_SOUND["cv_medium"]:
+            recommandations.append("Analyser les facteurs saisonniers ou de gestion pouvant expliquer l’instabilité observée.")
+        if prop_nuit_diag >= DIAG_THRESHOLDS_SOUND["nocturnite_medium"]:
+            recommandations.append("Interpréter la structure horaire en lien avec les espèces détectées, la saison et le protocole d’enregistrement.")
 
         if not forces:
             forces.append("Aucun signal écologique fortement positif ne ressort nettement sur la période considérée.")
@@ -4985,8 +5199,9 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
         # ---------------------------------------------------------
         st.info(
             "L’indice E1C (Every1Counts) combine la diversité (Shannon), "
-            "l’équilibre des abondances (Piélou) et la stabilité temporelle "
-            "pour fournir une lecture synthétique de la qualité écologique du site."
+            "l’équilibre des abondances (Piélou), la structure du peuplement (Simpson 1/D) "
+            "et la stabilité temporelle. La calibration SON repose sur les sites acoustiques "
+            "de référence intégrés au référentiel Every1Counts."
         )
     # ---------------- TAB EXPORT ----------------
     with tab_export:

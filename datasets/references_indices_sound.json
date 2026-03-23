@@ -1,0 +1,63 @@
+{
+  "_comment": "Références écologiques - données acoustiques",
+
+  "Shannon": {
+    "nom": "Indice de Shannon",
+    "mode": "standard",
+    "min_tick": 3,
+    "max_tick": 4,
+    "sites": [
+      {"label": "ET", "score": 3.35, "err": 0.02, "desc": "Etrechy, zone périurbaine"},
+      {"label": "LV", "score": 3.29, "err": 0.03, "desc": "Lavallière, parc d’hôtel"},
+      {"label": "LP", "score": 3.32, "err": 0.02, "desc": "La Peyruche, vignoble bio"}
+    ]
+  },
+
+  "Richesse": {
+    "nom": "Richesse spécifique",
+    "mode": "large",
+    "min_tick": 80,
+    "max_tick": 130,
+    "sites": [
+      {"label": "ET", "score": 91, "err": 3, "desc": "Etrechy, zone périurbaine"},
+      {"label": "LV", "score": 87, "err": 3, "desc": "Lavallière, parc d’hôtel"},
+      {"label": "LP", "score": 108, "err": 3, "desc": "La Peyruche, vignoble bio"}
+    ]
+  },
+
+  "InvD": {
+    "nom": "Nombre effectif (1 / D)",
+    "mode": "standard",
+    "min_tick": 10,
+    "max_tick": 30,
+    "sites": [
+      {"label": "ET", "score": 17.5, "err": 1.0, "desc": "Etrechy, zone périurbaine"},
+      {"label": "LV", "score": 16.6, "err": 0.4, "desc": "Lavallière, parc d’hôtel"},
+      {"label": "LP", "score": 12.7, "err": 0.5, "desc": "La Peyruche, vignoble bio"}
+    ]
+  },
+
+  "Pielou": {
+    "nom": "Équitabilité de Piélou",
+    "mode": "tiny",
+    "min_tick": 0,
+    "max_tick": 1,
+    "sites": [
+      {"label": "ET", "score": 0.74, "err": 0.01, "desc": "Etrechy, zone périurbaine"},
+      {"label": "LV", "score": 0.74, "err": 0.01, "desc": "Lavallière, parc d’hôtel"},
+      {"label": "LP", "score": 0.71, "err": 0.01, "desc": "La Peyruche, vignoble bio"}
+    ]
+  },
+
+  "IAJC": {
+    "nom": "Indice d'Activité (IAJC)",
+    "mode": "large",
+    "min_tick": 10,
+    "max_tick": 50,
+    "sites": [
+      {"label": "ET", "score": 35.7, "err": 0.0, "desc": "Etrechy"},
+      {"label": "LV", "score": 27.9, "err": 0.0, "desc": "Lavallière"},
+      {"label": "LP", "score": 16.2, "err": 0.0, "desc": "La Peyruche"}
+    ]
+  }
+}
