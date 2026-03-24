@@ -2397,11 +2397,6 @@ def compute_indice_e1c_calibrated(bootstrap_results, df_dist_shannon):
     """
     Calcule l'Indice E1C calibré caméra.
 
-    Composantes :
-    - Shannon  : 40%
-    - Piélou   : 30%
-    - Stabilité: 20%
-    - Simpson  : 10%
 
     Shannon, Piélou et Simpson sont normalisés entre Etréchy (min)
     et Purcari (max).
