@@ -486,13 +486,13 @@ def open_dataset_dialog():
     col1, col2 = st.columns(2)
 
     # ---------------------------------------------------------
-    # OPTION 1 : LANCER LA DÉMO
+    # OPTION 1 : DATASET DÉMO
     # ---------------------------------------------------------
     with col1:
         st.markdown("#### Démo")
         st.caption("Charge automatiquement le fichier de démonstration caméra.")
 
-        if st.button("Lancer la démo", use_container_width=True, key="launch_demo_cam"):
+        if st.button("Charger un dataset démo", use_container_width=True, key="launch_demo_cam"):
             try:
                 raw_df = load_data(DEMO_FILE_CAM)
                 df_bench = load_comparison_data()
