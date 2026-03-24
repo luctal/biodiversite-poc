@@ -1759,60 +1759,159 @@ def prepare_long_term_summary(df_input, grain="M"):
     """
     Prépare un tableau résumé par période pour les dynamiques long terme.
 
-    Pour chaque période, on calcule la moyenne inter-sites,
-    l'écart-type, le nombre de sites et l'erreur standard.
+    VERSION GLOBALE :
+    Les indicateurs sont calculés sur tous les sites confondus
+    pour chaque période (mois, trimestre, année).
+
+    On conserve le format de sortie historique avec des colonnes
+    *_mean, *_std, *_count, *_sem pour éviter de modifier les graphes
+    déjà en place.
     """
     # ---------------------------------------------------------
-    # 1. Calcul détaillé par site et période
+    # 1. Garde-fous
     # ---------------------------------------------------------
-    df_long = prepare_long_term_indicators(df_input, grain=grain)
+    if df_input is None or df_input.empty:
+        return pd.DataFrame()
 
-    if df_long is None or df_long.empty:
+    df = df_input.copy()
+
+    if "startdate" not in df.columns or "vernacular_name" not in df.columns:
         return pd.DataFrame()
 
     # ---------------------------------------------------------
-    # 2. Colonnes quantitatives à résumer
+    # 2. Sécurisation minimale
     # ---------------------------------------------------------
-    metric_cols = [
-        "richesse",
-        "shannon",
-        "pielou",
-        "simpson_inv_d",
-        "detections",
-        "events"
-    ]
+    if "detection_count" not in df.columns:
+        df["detection_count"] = 1
+
+    df["startdate"] = pd.to_datetime(df["startdate"], errors="coerce")
+    df = df.dropna(subset=["startdate", "vernacular_name"])
+
+    if df.empty:
+        return pd.DataFrame()
 
     # ---------------------------------------------------------
-    # 3. Résumé inter-sites par période
+    # 3. Construction de la période
+    # ---------------------------------------------------------
+    df["period"] = df["startdate"].dt.to_period(grain)
+    df["period_start"] = df["period"].dt.start_time
+    df["period_label"] = df["period"].astype(str)
+
+    # ---------------------------------------------------------
+    # 4. Agrégation globale par période et espèce
+    # ---------------------------------------------------------
+    # Ici on confond volontairement tous les sites :
+    # c'est le point clé pour obtenir un vrai Shannon global
+    # par mois / trimestre / année.
+    # ---------------------------------------------------------
+    df_species = (
+        df.groupby(["period_label", "period_start", "vernacular_name"], dropna=False)["detection_count"]
+        .sum()
+        .reset_index()
+    )
+
+    # ---------------------------------------------------------
+    # 5. Nombre d'évènements par période
+    # ---------------------------------------------------------
+    # Si une colonne id existe, on l'utilise comme proxy d'évènement.
+    # Sinon, on prend le nombre de lignes.
+    # ---------------------------------------------------------
+    if "id" in df.columns:
+        df_events = (
+            df.groupby(["period_label", "period_start"], dropna=False)["id"]
+            .nunique()
+            .reset_index(name="events")
+        )
+    else:
+        df_events = (
+            df.groupby(["period_label", "period_start"], dropna=False)
+            .size()
+            .reset_index(name="events")
+        )
+
+    # ---------------------------------------------------------
+    # 6. Calcul des indicateurs globaux par période
     # ---------------------------------------------------------
     summary_rows = []
 
-    grouped = df_long.groupby(["period_label", "period_start"], dropna=False)
+    grouped = df_species.groupby(["period_label", "period_start"], dropna=False)
 
     for (period_label, period_start), group in grouped:
+        counts = pd.to_numeric(group["detection_count"], errors="coerce").dropna()
+        counts = counts[counts > 0]
+
+        richesse = int(len(counts))
+        detections = float(counts.sum())
+
+        if len(counts) == 0 or detections == 0:
+            shannon = 0.0
+            pielou = 0.0
+            simpson_inv_d = 0.0
+        else:
+            p_i = counts / detections
+
+            # Shannon global
+            shannon = float(-(p_i * np.log(p_i + 1e-9)).sum())
+
+            # Piélou global
+            if richesse > 1:
+                pielou = float(shannon / np.log(richesse))
+            else:
+                pielou = 0.0
+
+            # Simpson inverse global
+            simpson_d = float((p_i ** 2).sum())
+            simpson_inv_d = float(1 / simpson_d) if simpson_d > 0 else 0.0
+
+        # récupération du nombre d'évènements
+        events_match = df_events[
+            (df_events["period_label"] == period_label) &
+            (df_events["period_start"] == period_start)
+        ]
+
+        events_val = float(events_match["events"].iloc[0]) if not events_match.empty else 0.0
+
+        # ---------------------------------------------------------
+        # 7. Format de sortie compatible avec les graphes existants
+        # ---------------------------------------------------------
+        # On remplit *_mean avec la valeur globale calculée.
+        # Les *_std et *_sem sont mis à 0 car il n'y a plus ici
+        # de variabilité inter-sites.
+        # ---------------------------------------------------------
         row = {
             "period_label": period_label,
-            "period_start": period_start
+            "period_start": period_start,
+
+            "richesse_mean": float(richesse),
+            "richesse_std": 0.0,
+            "richesse_count": 1,
+            "richesse_sem": 0.0,
+
+            "shannon_mean": shannon,
+            "shannon_std": 0.0,
+            "shannon_count": 1,
+            "shannon_sem": 0.0,
+
+            "pielou_mean": pielou,
+            "pielou_std": 0.0,
+            "pielou_count": 1,
+            "pielou_sem": 0.0,
+
+            "simpson_inv_d_mean": simpson_inv_d,
+            "simpson_inv_d_std": 0.0,
+            "simpson_inv_d_count": 1,
+            "simpson_inv_d_sem": 0.0,
+
+            "detections_mean": detections,
+            "detections_std": 0.0,
+            "detections_count": 1,
+            "detections_sem": 0.0,
+
+            "events_mean": events_val,
+            "events_std": 0.0,
+            "events_count": 1,
+            "events_sem": 0.0
         }
-
-        for col in metric_cols:
-            values = pd.to_numeric(group[col], errors="coerce").dropna()
-
-            if len(values) == 0:
-                mean_val = 0.0
-                std_val = 0.0
-                count_val = 0
-                sem_val = 0.0
-            else:
-                mean_val = float(values.mean())
-                std_val = float(values.std(ddof=1)) if len(values) > 1 else 0.0
-                count_val = int(len(values))
-                sem_val = float(std_val / np.sqrt(count_val)) if count_val > 0 else 0.0
-
-            row[f"{col}_mean"] = mean_val
-            row[f"{col}_std"] = std_val
-            row[f"{col}_count"] = count_val
-            row[f"{col}_sem"] = sem_val
 
         summary_rows.append(row)
 
