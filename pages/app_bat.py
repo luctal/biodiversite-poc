@@ -287,6 +287,59 @@ def load_comparison_data():
     except Exception:
         return None
 
+@st.cache_data
+def load_uicn_data():
+    """
+    Charge automatiquement le fichier UICN fusionné depuis le dossier datasets/.
+    Retourne None silencieusement si le fichier est absent.
+    """
+    path = "datasets/uicn_france_all_species.csv"
+
+    try:
+        df = pd.read_csv(path, sep=None, engine='python')
+
+        mapping = {
+            'Nom vernaculaire': 'vernacular_name',
+            'Common Name': 'vernacular_name',
+            'NomFR': 'vernacular_name',
+            'vernacular_name': 'vernacular_name',
+
+            'Nom scientifique': 'scientific_name',
+            'Scientific name': 'scientific_name',
+            'scientific_name': 'scientific_name',
+
+            'statut_monde': 'uicn_world',
+            'category': 'uicn_world',
+            'UICN_monde': 'uicn_world',
+            'uicn_world': 'uicn_world',
+
+            'statut_france': 'uicn_france',
+            'UICN_france': 'uicn_france',
+            'uicn_france': 'uicn_france',
+        }
+
+        df = df.rename(columns=mapping)
+
+        if 'vernacular_name' not in df.columns:
+            return None
+
+        df['vernacular_name'] = df['vernacular_name'].astype(str).str.strip()
+
+        if 'uicn_world' not in df.columns:
+            df['uicn_world'] = 'NC'
+        if 'uicn_france' not in df.columns:
+            df['uicn_france'] = 'NC'
+
+        df['uicn_world'] = df['uicn_world'].fillna('NC').astype(str).str.strip().str.upper()
+        df['uicn_france'] = df['uicn_france'].fillna('NC').astype(str).str.strip().str.upper()
+
+        return df
+
+    except FileNotFoundError:
+        return None
+    except Exception:
+        return None
+
 def build_sites_map_figure_simple(df_input, zoom=12):
     """
     Construit une carte satellite simple de repérage des hotspots.
@@ -505,6 +558,11 @@ else:
     st.info("👋 Veuillez charger un fichier CSV ou lancer la démo pour commencer l'analyse.")
     st.stop()
 
+# --- UICN : chargement automatique ---
+if "uicn_df_loaded_bat" not in st.session_state:
+    st.session_state.uicn_df_loaded_bat = load_uicn_data()
+
+uicn_df = st.session_state.uicn_df_loaded_bat
 
 # 4. SIDEBAR - PARAMÈTRES
 st.sidebar.title("⚙️ Paramètres")
@@ -520,10 +578,7 @@ filtre_sauvage = "Toutes"
 # 5. APPLICATION DES FILTRES
 df = raw_df.copy()
 
-# Filtre sur la confiance BirdNET (si disponible)
-if 'Birdnet_confidence_index' in df.columns:
-    df['Birdnet_confidence_index'] = pd.to_numeric(df['Birdnet_confidence_index'], errors='coerce')
-    df = df[df['Birdnet_confidence_index'] >= seuil_confiance]
+# Pas de filtre de confiance pour les données ultrasonores
 
 if isinstance(dates, tuple) and len(dates) == 2:
     df = df[(df['startdate'].dt.date >= dates[0]) & (df['startdate'].dt.date <= dates[1])]
@@ -2068,8 +2123,6 @@ def prepare_long_term_summary(df_input, grain="M"):
 
     return df_dist_shannon
 
-" A SUPPRIMER"
-
 def compute_indice_e1c(bootstrap_results, df_dist_shannon):
     """
     Calcule l’Indice E1C (Every1Counts), un score écologique global simplifié.
@@ -3437,10 +3490,11 @@ if not df.empty:
     # ---------------------------------------------------------
     df['Semaine'] = df['week_start']
 
-    st.title("🎧 Tableaux de bord - Son")
+    st.title("🦇 Tableaux de bord - Ultrason")
 
-    tab_global, tab_comparaison, tab_stats, tab_long_terme, tab_diagnostic, tab_export = st.tabs(
-    ["📊 Dashboard Global", "🔬 Comparaison de Sites", "📈 Statistiques", "📆 Dynamiques long terme", "🧠 Diagnostic écologique", "📥 Export"]
+    tab_global, tab_comparaison, tab_stats, tab_long_terme, tab_diagnostic, tab_uicn, tab_export = st.tabs(
+    ["📊 Dashboard Global", "🔬 Comparaison de Sites", "📈 Statistiques",
+     "📆 Dynamiques long terme", "🧠 Diagnostic écologique", "🔴 Liste Rouge UICN", "📥 Export"]
     )
 
     # ---------------- TAB GLOBAL ----------------
@@ -5371,6 +5425,272 @@ Si ce chiffre dépasse 70% sur un site forestier, la quiétude diurne est probab
     #         "et la stabilité temporelle. La calibration SON repose sur les sites acoustiques "
     #         "de référence intégrés au référentiel Every1Counts."
     #     )
+
+# ---------------- TAB UICN ----------------
+    with tab_uicn:
+        st.subheader("🔴 Croisement avec la Liste Rouge UICN")
+
+        UICN_COLORS = {
+            "EX": "#000000", "EW": "#542344", "CR": "#D4210A",
+            "EN": "#E8680A", "VU": "#F5C800", "NT": "#8BC34A",
+            "LC": "#2E7D32", "DD": "#90A4AE", "NA": "#B0BEC5",
+            "NE": "#CFD8DC", "NC": "#ECEFF1",
+        }
+
+        UICN_LABELS = {
+            "EX": "Éteint", "EW": "Éteint (sauvage)", "CR": "En danger critique",
+            "EN": "En danger", "VU": "Vulnérable", "NT": "Quasi menacé",
+            "LC": "Préoccupation mineure", "DD": "Données insuffisantes",
+            "NA": "Non applicable", "NE": "Non évalué", "NC": "Absent de la liste",
+        }
+
+        UICN_ORDER = ["EX", "EW", "CR", "EN", "VU", "NT", "LC", "DD", "NA", "NE", "NC"]
+        uicn_rank = {code: i for i, code in enumerate(UICN_ORDER)}
+
+        if uicn_df is None:
+            st.warning(
+                "⚠️ Fichier de référence UICN introuvable.\n\n"
+                "Placez le fichier `uicn_france_all_species.csv` dans le dossier `datasets/` "
+                "pour activer cet onglet automatiquement."
+            )
+        else:
+            # ---------------------------------------------------------
+            # 1. Croisement espèces x UICN
+            # ---------------------------------------------------------
+            species_detected = (
+                df.groupby('vernacular_name')['detection_count']
+                .sum().reset_index()
+                .rename(columns={'detection_count': 'detections'})
+            )
+            species_detected['vernacular_name_clean'] = species_detected['vernacular_name'].str.strip().str.lower()
+            uicn_df['vernacular_name_clean'] = uicn_df['vernacular_name'].str.strip().str.lower()
+
+            cols_uicn = ['vernacular_name_clean', 'uicn_world', 'uicn_france']
+            if 'scientific_name' in uicn_df.columns:
+                cols_uicn.append('scientific_name')
+
+            df_crossed = species_detected.merge(
+                uicn_df[cols_uicn], on='vernacular_name_clean', how='left'
+            ).drop(columns=['vernacular_name_clean'])
+
+            df_crossed['uicn_world'] = df_crossed['uicn_world'].fillna('NC')
+            df_crossed['uicn_france'] = df_crossed['uicn_france'].fillna('NC')
+
+            n_total = len(df_crossed)
+            n_matched = (df_crossed['uicn_world'] != 'NC').sum()
+            n_concern = df_crossed['uicn_world'].isin(['CR', 'EN', 'VU']).sum()
+            n_nt = (df_crossed['uicn_world'] == 'NT').sum()
+
+            # ---------------------------------------------------------
+            # 2. Métriques clés — Monde + France
+            # ---------------------------------------------------------
+            n_concern_fr = df_crossed['uicn_france'].isin(['CR', 'EN', 'VU']).sum()
+            n_nt_fr = (df_crossed['uicn_france'] == 'NT').sum()
+
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("Espèces détectées", n_total)
+            k2.metric("Identifiées dans la liste UICN", n_matched)
+            k3.metric("Menacées monde (CR/EN/VU)", n_concern)
+            k4.metric("Quasi-menacées monde (NT)", n_nt)
+
+            k5, k6, k7, k8 = st.columns(4)
+            k5.empty()  # colonne vide pour aligner
+            k6.empty()  # colonne vide pour aligner
+            k7.metric("Menacées France (CR/EN/VU)", n_concern_fr)
+            k8.metric("Quasi-menacées France (NT)", n_nt_fr)
+
+           # --- Niveau mondial ---
+            if n_concern > 0:
+                sp_list = df_crossed[df_crossed['uicn_world'].isin(['CR', 'EN', 'VU'])]['vernacular_name'].tolist()
+                st.error(f"🔴 **Monde — {n_concern} espèce(s) menacée(s) (CR/EN/VU) :** {', '.join(sp_list[:5])}{'...' if len(sp_list) > 5 else '.'}")
+            elif n_nt > 0:
+                sp_list_nt = df_crossed[df_crossed['uicn_world'] == 'NT']['vernacular_name'].tolist()
+                st.warning(f"🟠 **Monde —** Aucune espèce en danger direct, mais **{n_nt} espèce(s) quasi-menacée(s) (NT) :** {', '.join(sp_list_nt[:5])}{'...' if len(sp_list_nt) > 5 else '.'}")
+            else:
+                st.success("🟢 **Monde —** Aucune espèce menacée (CR/EN/VU) détectée.")
+
+            # --- Niveau France ---
+            if n_concern_fr > 0:
+                sp_list_fr = df_crossed[df_crossed['uicn_france'].isin(['CR', 'EN', 'VU'])]['vernacular_name'].tolist()
+                st.error(f"🔴 **France — {n_concern_fr} espèce(s) menacée(s) (CR/EN/VU) :** {', '.join(sp_list_fr[:5])}{'...' if len(sp_list_fr) > 5 else '.'}")
+            elif n_nt_fr > 0:
+                sp_list_nt_fr = df_crossed[df_crossed['uicn_france'] == 'NT']['vernacular_name'].tolist()
+                st.warning(f"🟠 **France —** Aucune espèce en danger direct, mais **{n_nt_fr} espèce(s) quasi-menacée(s) (NT) :** {', '.join(sp_list_nt_fr[:5])}{'...' if len(sp_list_nt_fr) > 5 else '.'}")
+            else:
+                st.success("🟢 **France —** Aucune espèce menacée (CR/EN/VU) détectée.")
+
+            st.markdown("---")
+
+            # ---------------------------------------------------------
+            # 3. Tableau filtrable
+            # ---------------------------------------------------------
+            st.markdown("### 📋 Tableau des espèces détectées x Statuts UICN")
+
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                filtre_monde = st.multiselect(
+                    "Filtrer par statut mondial :",
+                    options=UICN_ORDER, default=[],
+                    format_func=lambda x: f"{x} – {UICN_LABELS.get(x, x)}",
+                    key="uicn_bat_filter_world"
+                )
+            with col_f2:
+                filtre_france = st.multiselect(
+                    "Filtrer par statut France :",
+                    options=UICN_ORDER, default=[],
+                    format_func=lambda x: f"{x} – {UICN_LABELS.get(x, x)}",
+                    key="uicn_bat_filter_france"
+                )
+
+            df_table = df_crossed.copy()
+            if filtre_monde:
+                df_table = df_table[df_table['uicn_world'].isin(filtre_monde)]
+            if filtre_france:
+                df_table = df_table[df_table['uicn_france'].isin(filtre_france)]
+
+            df_table['_rank'] = df_table['uicn_world'].map(uicn_rank).fillna(99)
+            df_table = df_table.sort_values(['_rank', 'detections'], ascending=[True, False]).drop(columns=['_rank'])
+
+            df_display = df_table.copy()
+            df_display['Statut Monde'] = df_display['uicn_world'].map(lambda x: f"{x} – {UICN_LABELS.get(x, x)}")
+            df_display['Statut France'] = df_display['uicn_france'].map(lambda x: f"{x} – {UICN_LABELS.get(x, x)}")
+
+            cols_show = ['vernacular_name', 'detections', 'Statut Monde', 'Statut France']
+            if 'scientific_name' in df_display.columns:
+                cols_show.insert(1, 'scientific_name')
+
+            st.dataframe(
+                df_display[cols_show].rename(columns={
+                    'vernacular_name': 'Espèce',
+                    'scientific_name': 'Nom scientifique',
+                    'detections': 'Détections'
+                }),
+                use_container_width=True, hide_index=True, height=420
+            )
+
+            st.markdown("---")
+
+            # ---------------------------------------------------------
+            # 4. Graphiques distribution
+            # ---------------------------------------------------------
+            st.markdown("### 📊 Distribution des espèces par statut UICN")
+
+            col_g1, col_g2 = st.columns(2)
+
+            for col_widget, statut_col, title_suffix, key_suffix in [
+                (col_g1, 'uicn_world', '🌍 Statut mondial', 'world'),
+                (col_g2, 'uicn_france', '🇫🇷 Statut France', 'france')
+            ]:
+                with col_widget:
+                    st.markdown(f"#### {title_suffix}")
+                    dist = (
+                        df_crossed.groupby(statut_col)['detections']
+                        .agg(['count', 'sum']).reset_index()
+                        .rename(columns={'count': 'nb_especes', 'sum': 'nb_detections', statut_col: 'statut'})
+                    )
+                    dist['color'] = dist['statut'].map(lambda x: UICN_COLORS.get(x, "#ECEFF1"))
+                    dist['_rank'] = dist['statut'].map(uicn_rank).fillna(99)
+                    dist = dist.sort_values('_rank')
+
+                    fig_dist = px.bar(
+                        dist, x='statut', y='nb_especes',
+                        color='statut',
+                        color_discrete_map={r['statut']: r['color'] for _, r in dist.iterrows()},
+                        text='nb_especes', template='none',
+                        category_orders={'statut': [r for r in UICN_ORDER if r in dist['statut'].values]}
+                    )
+                    fig_dist.update_traces(textposition='outside', showlegend=False)
+                    fig_dist.update_layout(
+                        paper_bgcolor=C_FOND, plot_bgcolor=C_FOND,
+                        xaxis_title="Statut UICN", yaxis_title="Nb espèces",
+                        showlegend=False, height=380
+                    )
+                    st.plotly_chart(fig_dist, use_container_width=True, key=f"uicn_dist_{key_suffix}_bat")
+
+            st.markdown("---")
+
+            # ---------------------------------------------------------
+            # 5. Focus espèces menacées
+            # ---------------------------------------------------------
+            df_threatened = df_crossed[df_crossed['uicn_world'].isin(['CR', 'EN', 'VU', 'NT'])].copy()
+            df_threatened['_rank'] = df_threatened['uicn_world'].map(uicn_rank).fillna(99)
+            df_threatened = df_threatened.sort_values(['_rank', 'detections'], ascending=[True, False])
+
+            if not df_threatened.empty:
+                st.markdown("### ⚠️ Espèces à statut de conservation préoccupant")
+
+                fig_threat = px.bar(
+                    df_threatened, x='detections', y='vernacular_name',
+                    color='uicn_world',
+                    color_discrete_map=UICN_COLORS,
+                    orientation='h', text='uicn_world', template='none',
+                    category_orders={'uicn_world': ['CR', 'EN', 'VU', 'NT']}
+                )
+                fig_threat.update_traces(textposition='outside')
+                fig_threat.update_layout(
+                    paper_bgcolor=C_FOND, plot_bgcolor=C_FOND,
+                    xaxis_title="Nombre de détections", yaxis_title="",
+                    legend_title="Statut UICN",
+                    height=max(300, len(df_threatened) * 45),
+                    margin=dict(l=200, r=60, t=40, b=60)
+                )
+                st.plotly_chart(fig_threat, use_container_width=True)
+
+            st.markdown("---")
+
+            # ---------------------------------------------------------
+            # 6. Lecture écologique automatique
+            # ---------------------------------------------------------
+            st.markdown("### 🧾 Lecture écologique UICN")
+
+            taux_couverture = (n_matched / n_total * 100) if n_total > 0 else 0
+            commentaires_uicn = [
+                f"{n_matched} espèces sur {n_total} ont pu être croisées avec la liste UICN "
+                f"(couverture : {taux_couverture:.0f}%)."
+            ]
+
+            if n_concern == 0:
+                commentaires_uicn.append(
+                    "Aucune espèce en danger critique, en danger ou vulnérable n'a été détectée."
+                )
+            elif n_concern == 1:
+                sp = df_crossed[df_crossed['uicn_world'].isin(['CR', 'EN', 'VU'])]['vernacular_name'].iloc[0]
+                commentaires_uicn.append(f"Une espèce à statut préoccupant a été détectée : {sp}.")
+            else:
+                sp_list = df_crossed[df_crossed['uicn_world'].isin(['CR', 'EN', 'VU'])]['vernacular_name'].tolist()
+                commentaires_uicn.append(
+                    f"{n_concern} espèces à statut préoccupant : "
+                    f"{', '.join(sp_list[:5])}{'...' if len(sp_list) > 5 else '.'}"
+                )
+
+            if n_nt > 0:
+                commentaires_uicn.append(
+                    f"{n_nt} espèce(s) quasi-menacée(s) (NT) méritent un suivi attentif."
+                )
+
+            n_lc = (df_crossed['uicn_world'] == 'LC').sum()
+            if n_lc > 0:
+                commentaires_uicn.append(
+                    f"{n_lc} espèce(s) en préoccupation mineure (LC)."
+                )
+
+            st.write(" ".join(commentaires_uicn))
+
+            st.markdown("---")
+
+            # ---------------------------------------------------------
+            # 7. Export enrichi
+            # ---------------------------------------------------------
+            st.markdown("### 💾 Export enrichi avec statuts UICN")
+
+            csv_uicn = df_crossed.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Télécharger le tableau espèces + statuts UICN (CSV)",
+                data=csv_uicn,
+                file_name='export_especes_uicn_bat.csv',
+                mime='text/csv'
+            )
+
     # ---------------- TAB EXPORT ----------------
     with tab_export:
         st.subheader("📥 Exploration et Export des données")
