@@ -6,7 +6,4 @@ scipy
 statsmodels
 scikit-posthocs
 matplotlib
-scipy.stats
-io
-json
 
