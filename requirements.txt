@@ -1,9 +1,20 @@
+# BioAtlas — dépendances Python
+# Couvre tous les modules : Camera, Son, Chauves-souris, Score Ecosystème V3
+
+# ── Interface & visualisation ──────────────────────────────
 streamlit
+plotly
+matplotlib
+pydeck
+
+# ── Calcul & données générales ─────────────────────────────
 pandas
 numpy
-plotly
 scipy
 statsmodels
 scikit-posthocs
-matplotlib
 
+# ── Données géospatiales (Score Ecosystème V3) ─────────────
+geopandas
+shapely
+requests
