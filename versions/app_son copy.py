@@ -28,73 +28,93 @@ LEGENDE_SITES = (
 )
 
 
+
 # =========================================================
-# RÉFÉRENCES TERRAIN - INDICE E1C SON
-# Calibration V2 basée sur les sites de référence son
-# Composantes retenues :
-# - Richesse
-# - Shannon
-# - Simpson (1 / D)
+# DIAGNOSTIC ÉCOLOGIQUE SON — CONSTANTES ET FONCTIONS
+# Version calibrée sur 8 sites de référence
+#
+# Corpus de calibration :
+#   Castries (Moyen), Boston (Bon), Espeyran (Bon),
+#   Etrechy (Faible), LaPeyruche (Bon), Lavallière (Moyen),
+#   Purcari (Bon), Villevert (Bon)
+#
+# Scores simulés sur le corpus :
+#   Purcari     96  → Excellent ✓
+#   Boston      77  → Excellent ✓
+#   Villevert   69  → Bon       ✓
+#   LaPeyruche  58  → Bon       ✓
+#   Espeyran    54  → Bon       ✓
+#   Lavallière  32  → Intermédiaire ✓
+#   Castries     2  → Faible    ✓
+#   Etrechy     21  → Faible    ✓
+#
+# Composante retirée : Bray-Curtis (corrélation inversée
+# sur le corpus — artefact lié à la richesse des bons sites)
+# =========================================================
+ 
+ 
 # ---------------------------------------------------------
-# Les seuils "min" et "max" servent à la normalisation.
-# Les niveaux "mid" et "good" sont gardés pour lecture
-# et calibration éventuelle future.
-# =========================================================
-E1C_REFERENCE_SOUND = {
+# FENÊTRE CHORUS DE L'AUBE
+# ---------------------------------------------------------
+CHORUS_HEURE_DEBUT = 5
+CHORUS_HEURE_FIN   = 8
+ 
+ 
+# ---------------------------------------------------------
+# RÉFÉRENCES DE CALIBRATION EMPIRIQUES
+# min = valeur minimale observée sur le corpus
+# max = valeur maximale observée chez les sites "Bon"
+# ---------------------------------------------------------
+DIAGNOSTIC_REFERENCES = {
     "Richesse": {
-        "min": 87,     # Lavallière / Villevert
-        "mid": 91,     # Etrechy / Espeyran
-        "good": 108,   # La Peyruche
-        "max": 122     # Purcari
+        "min": 88.0,   # Lavallière (Moyen)
+        "max": 122.0   # Boston (Bon)
     },
-    "Shannon": {
-        "min": 2.80,   # Castries
-        "mid": 3.20,   # Espeyran (arrondi pour stabilité)
-        "good": 3.35,  # Etrechy
-        "max": 3.60    # Purcari (légèrement étendu)
+    "Pielou": {
+        "min": 0.62,   # Castries (Moyen)
+        "max": 0.77    # Villevert (Bon)
     },
-    "Simpson": {
-        "min": 6.0,    # Castries (arrondi)
-        "mid": 12.5,   # La Peyruche (lissé)
-        "good": 17.5,  # Etrechy
-        "max": 20.5    # Purcari (légèrement étendu)
+    "ADI_auroral": {
+        "min": 2.0,    # Castries (Moyen)
+        "max": 7.0     # Espeyran / Purcari (Bon)
+    },
+    "D50": {
+        "min": 3.0,    # Castries (Moyen)
+        "max": 9.0     # Villevert (Bon)
     }
 }
-
-E1C_WEIGHTS_SOUND = {
-    "Simpson": 0.45,
-    "Richesse": 0.25,
-    "Shannon": 0.20,
-    "Stabilite": 0.10
+ 
+ 
+# ---------------------------------------------------------
+# PONDÉRATIONS CALIBRÉES
+# Basées sur la corrélation de Spearman avec la qualité terrain :
+#   ADI auroral : r=+0.80  → 40%
+#   Richesse    : r=+0.72  → 35%
+#   D50         : r=+0.37  → 15%
+#   Piélou      : r=+0.23  → 10%
+#   Bray-Curtis : retiré (corrélation inversée sur le corpus)
+# ---------------------------------------------------------
+E1C_PONDERATIONS = {
+    "Richesse":    0.35,
+    "ADI_auroral": 0.40,
+    "D50":         0.15,
+    "Pielou":      0.10
 }
-
-E1C_THRESHOLDS_SOUND = {
-    "low": 45,
-    "medium": 65,
-    "high": 80
+ 
+ 
+# ---------------------------------------------------------
+# SEUILS DE CLASSIFICATION E1C
+# Calés sur la distribution simulée du corpus :
+#   >= 72 → Excellent  (Purcari 96, Boston 77)
+#   >= 52 → Bon        (Villevert 69, LaPeyruche 58, Espeyran 54)
+#   >= 32 → Intermédiaire (Lavallière 32)
+#   <  32 → Faible     (Etrechy 21, Castries 2)
+# ---------------------------------------------------------
+E1C_SEUILS = {
+    "excellent":    72,
+    "bon":          52,
+    "intermediaire": 32
 }
-
-DIAG_THRESHOLDS_SOUND = {
-    "dominance_good": 0.75,
-    "dominance_medium": 0.80,
-    "cv_stable": 0.1,
-    "cv_medium": 0.15,
-    "nocturnite_low": 5,
-    "nocturnite_medium": 10
-}
-
-# --- CONFIGURATION PRESSION ANTHROPIQUE (OISEAUX) ---
-# On définit la nuit biologique plus strictement pour les oiseaux
-# pour éviter de compter le chœur de l'aube (5h-7h) comme une "pression".
-HEURE_DEBUT_JOUR_BIO = 5  # 05h00
-HEURE_FIN_JOUR_BIO = 21   # 21h00
-
-# Liste des espèces à NE PAS compter dans le score de pression 
-# car elles sont naturellement actives la nuit.
-ESPECES_NOCTURNES_NATURELLES = [
-    "Chouette hulotte", "Hibou moyen-duc", "Effraie des clochers", 
-    "Engoulevent d'Europe", "Rossignol philomèle", "Petit-duc scops"
-]
 
 # =========================================================
 # CHARGEMENT DES DONNEES DE REFERENCE
@@ -2150,8 +2170,6 @@ def prepare_long_term_summary(df_input, grain="M"):
 
     return df_dist_shannon
 
-" A SUPPRIMER"
-
 def compute_indice_e1c(bootstrap_results, df_dist_shannon):
     """
     Calcule l’Indice E1C (Every1Counts), un score écologique global simplifié.
@@ -3503,6 +3521,372 @@ def normalize_score(value, vmin, vmax):
     score = max(0.0, min(1.0, score))
     return float(score * 100)
 
+# ---------------------------------------------------------
+# FONCTION 1 : Indice de vitalité du chorus de l'aube
+# ---------------------------------------------------------
+def compute_adi_auroral(df_input):
+    """
+    Calcule l'ADI auroral : richesse spécifique médiane
+    observée entre 5h et 8h, par jour de suivi.
+ 
+    Returns
+    -------
+    adi_median : float
+    adi_std    : float
+    n_jours    : int
+    df_daily   : pd.DataFrame  (date_only, richesse_auroral)
+    """
+    if df_input.empty:
+        return 0.0, 0.0, 0, pd.DataFrame()
+ 
+    df_temp = df_input.copy()
+ 
+    if 'Heure' not in df_temp.columns:
+        df_temp['Heure'] = pd.to_datetime(df_temp['startdate']).dt.hour
+ 
+    df_temp['date_only'] = pd.to_datetime(df_temp['startdate']).dt.date
+ 
+    df_chorus = df_temp[
+        (df_temp['Heure'] >= CHORUS_HEURE_DEBUT) &
+        (df_temp['Heure'] <  CHORUS_HEURE_FIN)
+    ]
+ 
+    if df_chorus.empty:
+        return 0.0, 0.0, 0, pd.DataFrame()
+ 
+    df_daily = (
+        df_chorus.groupby('date_only')['vernacular_name']
+        .nunique()
+        .reset_index(name='richesse_auroral')
+    )
+ 
+    if df_daily.empty:
+        return 0.0, 0.0, 0, pd.DataFrame()
+ 
+    return (
+        float(df_daily['richesse_auroral'].median()),
+        float(df_daily['richesse_auroral'].std()),
+        len(df_daily),
+        df_daily
+    )
+ 
+ 
+# ---------------------------------------------------------
+# FONCTION 2 : Dominance D50
+# ---------------------------------------------------------
+def compute_d50(df_input):
+    """
+    Calcule le D50 : nombre d'espèces nécessaires pour
+    atteindre 50% de l'abondance totale.
+ 
+    Returns
+    -------
+    d50          : int
+    df_rank      : pd.DataFrame  (espece, abondance, part, cumul, rang)
+    prop_top_d50 : float  (part exacte cumulée par les d50 premières espèces)
+    """
+    if df_input.empty:
+        return 1, pd.DataFrame(), 0.0
+ 
+    df_counts = (
+        df_input.groupby('vernacular_name')['detection_count']
+        .sum()
+        .sort_values(ascending=False)
+        .reset_index()
+    )
+    df_counts.columns = ['espece', 'abondance']
+ 
+    total = df_counts['abondance'].sum()
+    if total == 0:
+        return 1, df_counts, 0.0
+ 
+    df_counts['part']  = df_counts['abondance'] / total
+    df_counts['cumul'] = df_counts['part'].cumsum()
+    df_counts['rang']  = range(1, len(df_counts) + 1)
+ 
+    d50_rows = df_counts[df_counts['cumul'] >= 0.50]
+    d50 = int(d50_rows.iloc[0]['rang']) if not d50_rows.empty else len(df_counts)
+ 
+    return d50, df_counts, float(df_counts.head(d50)['part'].sum())
+ 
+ 
+# ---------------------------------------------------------
+# FONCTION 3 : Stabilité Bray-Curtis hebdomadaire
+# (conservée pour affichage informatif uniquement —
+#  retirée du calcul E1C car corrélation inversée sur corpus)
+# ---------------------------------------------------------
+def compute_bray_curtis_stability(df_input):
+    """
+    Calcule la similarité de Bray-Curtis entre semaines consécutives.
+    Retourne la médiane (robuste aux semaines atypiques).
+ 
+    Non intégrée dans l'indice E1C — affichage informatif uniquement.
+ 
+    Returns
+    -------
+    bc_median  : float
+    bc_std     : float
+    n_semaines : int
+    df_bc      : pd.DataFrame  (week_id, bc_similarity)
+    """
+    if df_input.empty:
+        return 0.0, 0.0, 0, pd.DataFrame()
+ 
+    df_temp = df_input.copy()
+ 
+    pivot = df_temp.pivot_table(
+        index='vernacular_name',
+        columns='week_id',
+        values='detection_count',
+        aggfunc='sum',
+        fill_value=0
+    )
+ 
+    if pivot.shape[1] < 2:
+        return 0.0, 0.0, 0, pd.DataFrame()
+ 
+    rows     = []
+    prev_vec = None
+ 
+    for week in sorted(pivot.columns):
+        current_vec = pivot[week].astype(float)
+ 
+        if prev_vec is None:
+            similarity = np.nan
+        else:
+            numerator   = np.abs(current_vec - prev_vec).sum()
+            denominator = (current_vec + prev_vec).sum()
+            dissim      = numerator / denominator if denominator > 0 else np.nan
+            similarity  = 1 - dissim if pd.notna(dissim) else np.nan
+ 
+        rows.append({'week_id': week, 'bc_similarity': similarity})
+        prev_vec = current_vec
+ 
+    df_bc  = pd.DataFrame(rows)
+    valid  = df_bc['bc_similarity'].dropna()
+ 
+    if len(valid) == 0:
+        return 0.0, 0.0, 0, df_bc
+ 
+    return float(valid.median()), float(valid.std()), len(valid), df_bc
+ 
+ 
+# ---------------------------------------------------------
+# FONCTION 4 : Score E1C v2 calibré
+# ---------------------------------------------------------
+def compute_e1c_v2(bootstrap_results, adi_median, d50, bc_median=None):
+    """
+    Calcule l'indice E1C Son v2 à partir de 4 composantes calibrées.
+ 
+    Composantes et pondérations :
+      ADI auroral  40%  (meilleur discriminant, r=+0.80)
+      Richesse S   35%  (r=+0.72)
+      D50          15%  (r=+0.37)
+      Piélou J     10%  (r=+0.23)
+ 
+    Bray-Curtis retiré (corrélation inversée sur le corpus de calibration).
+ 
+    Parameters
+    ----------
+    bootstrap_results : dict  (clés 'S', 'J', 'H', 'InvD')
+    adi_median        : float
+    d50               : int
+    bc_median         : float  (ignoré dans le calcul, conservé pour signature)
+ 
+    Returns
+    -------
+    dict
+        score_e1c, score_richesse, score_pielou, score_adi,
+        score_d50, classe
+    """
+    if not bootstrap_results:
+        return {
+            "score_e1c":    0.0,
+            "score_richesse": 0.0,
+            "score_pielou":   0.0,
+            "score_adi":      0.0,
+            "score_d50":      0.0,
+            "classe":         "Non calculable"
+        }
+ 
+    ref = DIAGNOSTIC_REFERENCES
+ 
+    score_richesse = normalize_score(
+        bootstrap_results["S"][0],
+        ref["Richesse"]["min"],
+        ref["Richesse"]["max"]
+    )
+    score_pielou = normalize_score(
+        bootstrap_results["J"][0],
+        ref["Pielou"]["min"],
+        ref["Pielou"]["max"]
+    )
+    score_adi = normalize_score(
+        adi_median,
+        ref["ADI_auroral"]["min"],
+        ref["ADI_auroral"]["max"]
+    )
+    score_d50 = normalize_score(
+        float(d50),
+        ref["D50"]["min"],
+        ref["D50"]["max"]
+    )
+ 
+    score_e1c = (
+        score_richesse * E1C_PONDERATIONS["Richesse"] +
+        score_pielou   * E1C_PONDERATIONS["Pielou"] +
+        score_adi      * E1C_PONDERATIONS["ADI_auroral"] +
+        score_d50      * E1C_PONDERATIONS["D50"]
+    )
+ 
+    if score_e1c >= E1C_SEUILS["excellent"]:
+        classe = "Excellent"
+    elif score_e1c >= E1C_SEUILS["bon"]:
+        classe = "Bon"
+    elif score_e1c >= E1C_SEUILS["intermediaire"]:
+        classe = "Intermédiaire"
+    else:
+        classe = "Faible"
+ 
+    return {
+        "score_e1c":      float(score_e1c),
+        "score_richesse": float(score_richesse),
+        "score_pielou":   float(score_pielou),
+        "score_adi":      float(score_adi),
+        "score_d50":      float(score_d50),
+        "classe":         classe
+    }
+
+def compute_anthropic_pressure_auroral(df_input):
+    """
+    Estime la pression anthropique matinale via deux proxies
+    calculables depuis les données BirdNET traitées.
+ 
+    Proxy 1 — Ratio de confiance auroral / diurne :
+        Un score de confiance BirdNET systématiquement plus faible
+        sur 5h-8h que sur 9h-18h suggère un masquage acoustique
+        (bruit de trafic, activité humaine matinale).
+        Référence : Pérez-Granados (2023), Fradet et al. (2025)
+ 
+    Proxy 2 — Ratio de richesse auroral / diurne :
+        Si la richesse spécifique sur 5h-8h est anormalement
+        basse par rapport à 9h-18h, cela peut indiquer une
+        suppression du chorus par le bruit anthropique.
+        Référence : Somervuo et al. (2025), Nature Ecol Evol
+ 
+    Returns
+    -------
+    dict avec :
+        - confidence_auroral   : score moyen sur 5h-8h
+        - confidence_diurne    : score moyen sur 9h-18h
+        - confidence_ratio     : auroral / diurne (< 0.85 = signal)
+        - richesse_auroral     : nb espèces sur 5h-8h
+        - richesse_diurne      : nb espèces sur 9h-18h
+        - richesse_ratio       : auroral / diurne (< 0.50 = signal)
+        - pressure_level       : "Faible" / "Modérée" / "Élevée"
+        - has_confidence_data  : bool (colonne dispo ou non)
+    """
+    result = {
+        "confidence_auroral":  None,
+        "confidence_diurne":   None,
+        "confidence_ratio":    None,
+        "richesse_auroral":    0,
+        "richesse_diurne":     0,
+        "richesse_ratio":      None,
+        "pressure_level":      "Non calculable",
+        "has_confidence_data": False,
+        "n_auroral":           0,
+        "n_diurne":            0
+    }
+ 
+    if df_input.empty:
+        return result
+ 
+    df_temp = df_input.copy()
+ 
+    if "Heure" not in df_temp.columns:
+        df_temp["Heure"] = pd.to_datetime(df_temp["startdate"]).dt.hour
+ 
+    # Fenêtres temporelles
+    df_auroral = df_temp[
+        (df_temp["Heure"] >= CHORUS_HEURE_DEBUT) &
+        (df_temp["Heure"] < CHORUS_HEURE_FIN)
+    ]
+    df_diurne = df_temp[
+        (df_temp["Heure"] >= 9) &
+        (df_temp["Heure"] < 18)
+    ]
+ 
+    result["n_auroral"] = len(df_auroral)
+    result["n_diurne"]  = len(df_diurne)
+ 
+    # Richesse spécifique sur chaque fenêtre
+    result["richesse_auroral"] = df_auroral["vernacular_name"].nunique()
+    result["richesse_diurne"]  = df_diurne["vernacular_name"].nunique()
+ 
+    if result["richesse_diurne"] > 0:
+        result["richesse_ratio"] = (
+            result["richesse_auroral"] / result["richesse_diurne"]
+        )
+ 
+    # Proxy confiance BirdNET (si disponible)
+    if "Birdnet_confidence_index" in df_temp.columns:
+        result["has_confidence_data"] = True
+ 
+        conf_auroral = pd.to_numeric(
+            df_auroral["Birdnet_confidence_index"], errors="coerce"
+        ).dropna()
+        conf_diurne = pd.to_numeric(
+            df_diurne["Birdnet_confidence_index"], errors="coerce"
+        ).dropna()
+ 
+        if len(conf_auroral) > 0:
+            result["confidence_auroral"] = float(conf_auroral.mean())
+        if len(conf_diurne) > 0:
+            result["confidence_diurne"] = float(conf_diurne.mean())
+ 
+        if (result["confidence_auroral"] is not None and
+                result["confidence_diurne"] is not None and
+                result["confidence_diurne"] > 0):
+            result["confidence_ratio"] = (
+                result["confidence_auroral"] / result["confidence_diurne"]
+            )
+ 
+    # -------------------------------------------------------
+    # Évaluation du niveau de pression
+    # Logique combinée des deux proxies disponibles
+    # -------------------------------------------------------
+    signals = []
+ 
+    # Signal 1 : ratio confiance
+    if result["confidence_ratio"] is not None:
+        if result["confidence_ratio"] < 0.85:
+            signals.append("fort")
+        elif result["confidence_ratio"] < 0.92:
+            signals.append("modéré")
+        else:
+            signals.append("faible")
+ 
+    # Signal 2 : ratio richesse
+    if result["richesse_ratio"] is not None:
+        if result["richesse_ratio"] < 0.45:
+            signals.append("fort")
+        elif result["richesse_ratio"] < 0.65:
+            signals.append("modéré")
+        else:
+            signals.append("faible")
+ 
+    if not signals:
+        result["pressure_level"] = "Non calculable"
+    elif signals.count("fort") >= 1:
+        result["pressure_level"] = "Élevée"
+    elif signals.count("modéré") >= 1:
+        result["pressure_level"] = "Modérée"
+    else:
+        result["pressure_level"] = "Faible"
+ 
+    return result
+
 # 8. CALCULS PRINCIPAUX
 if not df.empty:
     with st.spinner('Calculs Bootstrap en cours...'):
@@ -3524,7 +3908,7 @@ if not df.empty:
     color_map = {esp: PALETTE_ESPECES[i] for i, esp in enumerate(top9)}
     color_map["Autres"] = C_GRIS
 
-        # ---------------------------------------------------------
+    # ---------------------------------------------------------
     # Préparation des catégories graphiques
     # ---------------------------------------------------------
     # On conserve les 9 espèces les plus abondantes,
@@ -3980,7 +4364,7 @@ if not df.empty:
             else:
                 st.warning("⚠️ Pas assez de données pour construire la comparaison inter-sites.")
 
-        # ---------------- TAB STATS ----------------
+    # ---------------- TAB STATS ----------------
     with tab_stats:
         st.subheader("📦 Distribution Hebdomadaire de la Diversité (Shannon)")
 
@@ -4242,7 +4626,7 @@ Pour les oiseaux diurnes, si ce chiffre dépasse 15 à 20%, cela traduit souvent
 
             conf = metric_config[metric_choice]
 
-                        # ---------------------------------------------------------
+            # ---------------------------------------------------------
             # Histogramme principal avec correction axe X
             # ---------------------------------------------------------
 
@@ -5161,317 +5545,732 @@ Pour les oiseaux diurnes, si ce chiffre dépasse 15 à 20%, cela traduit souvent
                 else:
                     st.info("Aucune variation marquée n'est détectée sur les espèces les plus fréquentes.")
 
-       # ---------------- TAB DIAGNOSTIC ----------------
-    # ---------------- TAB DIAGNOSTIC ----------------
     with tab_diagnostic:
         st.subheader("🧠 Diagnostic écologique")
 
         # ---------------------------------------------------------
-        # 1. Calcul du Shannon hebdomadaire (stabilité)
+        # 1. Calculs des composantes E1C v2
         # ---------------------------------------------------------
-        df_dist_shannon_diag = compute_weekly_shannon_distribution(df)
+        adi_median, adi_std, n_jours_chorus, df_daily_adi = compute_adi_auroral(df)
+        d50, df_rank, prop_top_d50 = compute_d50(df)
+        bc_median, bc_std, n_semaines_bc, df_bc_weekly = compute_bray_curtis_stability(df)
+        e1c = compute_e1c_v2(bootstrap_results, adi_median, d50, bc_median)
+
+        # NOUVEAU : calcul pression anthropique matinale
+        # Doit être fait ici pour être disponible dans les
+        # sections suivantes (commentaires + recommandations)
+        pressure = compute_anthropic_pressure_auroral(df)
 
         # ---------------------------------------------------------
-        # 2. Calcul de l’indice E1C calibré SON
+        # 2. Bandeau synthétique
         # ---------------------------------------------------------
-        e1c_results = compute_indice_e1c_calibrated_sound(
-            bootstrap_results,
-            df_dist_shannon_diag
+        col_score, col_classe, col_adi, col_d50 = st.columns(4)
+
+        col_score.metric("Indice E1C", f"{e1c['score_e1c']:.0f} / 100")
+        col_classe.metric("Classe écologique", e1c["classe"])
+        col_adi.metric(
+            "Chorus de l'aube (ADI)",
+            f"{adi_median:.1f} sp/matin" if n_jours_chorus > 0 else "n.c.",
+            help=f"Médiane sur {n_jours_chorus} matins entre {CHORUS_HEURE_DEBUT}h et {CHORUS_HEURE_FIN}h"
+        )
+        col_d50.metric(
+            "D50",
+            f"{d50} espèces",
+            help=f"Il faut {d50} espèce(s) pour atteindre 50% des détections"
         )
 
-        score_e1c = e1c_results["score_e1c"]
-        cv_shannon = e1c_results["cv_shannon"]
-        score_stabilite = e1c_results["score_stabilite"]
-        score_richesse = e1c_results["score_richesse"]
-        score_shannon = e1c_results["score_shannon"]
-        score_simpson = e1c_results["score_simpson"]
-
-        classe_e1c = classify_e1c_sound(score_e1c)
-
         # ---------------------------------------------------------
-        # 3. Affichage des indicateurs principaux
+        # 3. Bannière de classification
         # ---------------------------------------------------------
-        c1, c2, c3, c4 = st.columns(4)
-
-        with c1:
-            st.metric("Indice E1C", f"{score_e1c:.0f} / 100")
-
-        with c2:
-            st.metric("Classe écologique", classe_e1c)
-
-        with c3:
-            if pd.notna(cv_shannon):
-                st.metric("CV Shannon hebdomadaire", f"{cv_shannon:.2f}")
-            else:
-                st.metric("CV Shannon hebdomadaire", "n.c.")
-
-        with c4:
-            st.metric("Score de stabilité", f"{score_stabilite:.0f} / 100")
-
-        # ---------------------------------------------------------
-        # 4. Interprétation globale
-        # ---------------------------------------------------------
-        if score_e1c >= E1C_THRESHOLDS_SOUND["high"]:
-            st.success(
-                "🟢 Indice E1C excellent : le site se situe parmi les meilleurs niveaux observés dans le référentiel acoustique."
-            )
-        elif score_e1c >= E1C_THRESHOLDS_SOUND["medium"]:
-            st.success(
-                "🟢 Indice E1C bon : le site présente un bon niveau écologique dans le référentiel acoustique."
-            )
-        elif score_e1c >= E1C_THRESHOLDS_SOUND["low"]:
-            st.warning(
-                "🟠 Indice E1C intermédiaire : le site est fonctionnel mais encore perfectible sur certaines composantes de diversité."
-            )
+        if e1c["score_e1c"] >= E1C_SEUILS["excellent"]:
+            st.success("🟢 Excellent — ce site fait partie des références écologiques du réseau. La vie sauvage y est riche, équilibrée et stable.")
+        elif e1c["score_e1c"] >= E1C_SEUILS["bon"]:
+            st.success("🟢 Bon — le site accueille une communauté d'oiseaux diversifiée et en bonne santé.")
+        elif e1c["score_e1c"] >= E1C_SEUILS["intermediaire"]:
+            st.warning("🟠 Intermédiaire — le site fonctionne, mais certains signaux méritent attention. Des marges de progression existent.")
         else:
-            st.error(
-                "🔴 Indice E1C faible : la communauté acoustique apparaît simplifiée ou peu structurée."
-            )
+            st.error("🔴 Faible — la communauté sonore est appauvrie ou déséquilibrée. Une analyse des causes est recommandée.")
+
+        st.markdown("---")
 
         # ---------------------------------------------------------
-        # 5. Décomposition du score E1C
+        # 4. Décomposition des 4 composantes
         # ---------------------------------------------------------
-        st.markdown("### 🧩 Décomposition de l’indice E1C")
+        st.markdown("### 🧩 Décomposition de l'indice E1C v2")
 
-        df_e1c_components = pd.DataFrame({
+        st.caption(
+            "L'indice E1C combine 4 mesures complémentaires, chacune éclairant un aspect différent "
+            "de la vie sur le site. Un bon score global peut cacher une faiblesse sur l'une d'elles — "
+            "c'est pourquoi on les affiche séparément."
+        )
+
+        df_e1c_comp = pd.DataFrame({
             "Composante": [
-                "Structure (Simpson 1/D)",
-                "Richesse spécifique",
-                "Diversité (Shannon)",
-                "Stabilité temporelle"
+                "Chorus aube (ADI) — 40%",
+                "Richesse (S) — 35%",
+                "Structure (D50) — 15%",
+                "Équitabilité (J) — 10%"
             ],
-            "Score /100": [
-                score_simpson,
-                score_richesse,
-                score_shannon,
-                score_stabilite
+            "Score": [
+                e1c["score_adi"],
+                e1c["score_richesse"],
+                e1c["score_d50"],
+                e1c["score_pielou"]
             ]
         })
 
+        def couleur_score(s):
+            if s >= 70:
+                return C_VERT_SOMBRE
+            elif s >= 45:
+                return C_JAUNE
+            else:
+                return C_ROUGE
+
+        couleurs_barres = [couleur_score(s) for s in df_e1c_comp["Score"]]
+
         fig_e1c = px.bar(
-            df_e1c_components,
+            df_e1c_comp,
             x="Composante",
-            y="Score /100",
-            text="Score /100",
+            y="Score",
+            text="Score",
             template="none"
         )
-
         fig_e1c.update_traces(
             texttemplate="%{y:.0f}",
-            textposition="outside"
+            textposition="outside",
+            marker_color=couleurs_barres,
+            marker_line_color=C_VERT_SOMBRE,
+            marker_line_width=1.2
         )
-
+        fig_e1c.add_hline(
+            y=E1C_SEUILS["bon"], line_dash="dot", line_color=C_VERT_SOMBRE,
+            annotation_text="Seuil bon", annotation_position="top right"
+        )
         fig_e1c.update_layout(
             paper_bgcolor=C_FOND,
             plot_bgcolor=C_FOND,
-            yaxis=dict(range=[0, 110]),
-            showlegend=False
+            yaxis=dict(range=[0, 115], title="Score / 100"),
+            showlegend=False,
+            height=420
         )
-
         st.plotly_chart(fig_e1c, use_container_width=True)
 
+        st.info(
+            "**Comment lire ce graphique ?** Chaque barre correspond à une dimension de la biodiversité sonore. "
+            "Une barre verte signifie que le site se compare favorablement aux sites de référence du réseau. "
+            "Une barre rouge indique un point faible à investiguer. "
+            "Les pourcentages indiquent le poids de chaque composante dans la note globale — "
+            "le chorus de l'aube compte le plus (40%) car c'est le signal le plus précoce de dégradation."
+        )
+
+        st.markdown("---")
+
         # ---------------------------------------------------------
-        # 6. Dominance des espèces
+        # 5. Chorus de l'aube — détail
         # ---------------------------------------------------------
-        dominance_ratio, df_top_dom = compute_species_dominance(df, top_n=20)
+        st.markdown("### 🐦 Le concert du matin — signe de vitalité du site")
 
-        st.markdown("### 🐾 Dominance des espèces")
+        st.caption(
+            "Entre 5h et 8h, les oiseaux chantent tous ensemble : c'est le chorus de l'aube. "
+            "Plus il est riche en espèces différentes, plus le site est en bonne santé. "
+            "C'est souvent le premier indicateur à baisser quand un milieu se dégrade — "
+            "avant même que la richesse totale ne change."
+        )
 
-        c5, c6 = st.columns([1, 1.5])
+        if n_jours_chorus == 0:
+            st.warning(
+                f"⚠️ Aucun enregistrement entre {CHORUS_HEURE_DEBUT}h et {CHORUS_HEURE_FIN}h "
+                "détecté dans les données. Cet indicateur ne peut pas être calculé. "
+                "Vérifiez que vos enregistreurs sont bien actifs tôt le matin."
+            )
+        else:
+            c_adi1, c_adi2 = st.columns([1, 2])
 
-        with c5:
-            st.metric(
-                "Part des 20 espèces dominantes",
-                f"{dominance_ratio * 100:.1f}%"
+            with c_adi1:
+                st.metric("Espèces entendues en moyenne le matin", f"{adi_median:.1f} espèces / matin")
+                st.metric("Nombre de matins analysés", n_jours_chorus)
+
+                if adi_median >= DIAGNOSTIC_REFERENCES["ADI_auroral"]["max"] * 0.75:
+                    st.success("🟢 Chorus riche — le site est vivant et peu perturbé au lever du jour.")
+                elif adi_median >= DIAGNOSTIC_REFERENCES["ADI_auroral"]["min"] + \
+                     (DIAGNOSTIC_REFERENCES["ADI_auroral"]["max"] - DIAGNOSTIC_REFERENCES["ADI_auroral"]["min"]) * 0.4:
+                    st.warning("🟠 Chorus modéré — correct, mais en dessous des meilleurs sites de référence.")
+                else:
+                    st.error("🔴 Chorus faible — peu d'espèces chantent le matin. "
+                             "Cela peut indiquer une perturbation, un manque d'habitats refuges, "
+                             "ou une pression nocturne (lumière, bruit).")
+
+                st.caption(
+                    f"Sur les {n_jours_chorus} matins analysés, on entend en médiane "
+                    f"{adi_median:.1f} espèces différentes entre {CHORUS_HEURE_DEBUT}h et {CHORUS_HEURE_FIN}h. "
+                    "Les meilleurs sites du réseau atteignent 7 espèces/matin."
+                )
+
+            with c_adi2:
+                if not df_daily_adi.empty:
+                    fig_adi = px.histogram(
+                        df_daily_adi,
+                        x='richesse_auroral',
+                        nbins=15,
+                        template="none",
+                        labels={
+                            'richesse_auroral': 'Espèces entendues le matin',
+                            'count': 'Nombre de matins'
+                        }
+                    )
+                    fig_adi.add_vline(
+                        x=adi_median, line_dash="dash", line_color=C_ROUGE,
+                        annotation_text=f"Médiane : {adi_median:.1f}",
+                        annotation_position="top right"
+                    )
+                    fig_adi.update_traces(
+                        marker_color=C_VERT_SOMBRE,
+                        marker_line_color=C_FOND
+                    )
+                    fig_adi.update_layout(
+                        paper_bgcolor=C_FOND, plot_bgcolor=C_FOND,
+                        height=300,
+                        title="Combien d'espèces entend-on chaque matin ?"
+                    )
+                    st.plotly_chart(fig_adi, use_container_width=True)
+
+        st.markdown("---")
+
+        # ---------------------------------------------------------
+        # 6. Structure rang-abondance — D50
+        # ---------------------------------------------------------
+        st.markdown("### 📐 Équilibre du peuplement — est-ce que tout le monde a sa place ?")
+
+        st.caption(
+            "Sur un site équilibré, de nombreuses espèces contribuent à parts comparables. "
+            "Sur un site dominé, 1 ou 2 espèces représentent la moitié de toutes les détections "
+            "et écrasent les autres — comme une monoculture. "
+            "Le D50 mesure combien d'espèces sont nécessaires pour représenter "
+            "la moitié de l'activité sonore totale."
+        )
+
+        if df_rank.empty:
+            st.warning("⚠️ Données insuffisantes pour calculer la courbe rang-abondance.")
+        else:
+            c_d50a, c_d50b = st.columns([1, 2])
+
+            with c_d50a:
+                st.metric(
+                    "Espèces représentant 50% de l'activité (D50)",
+                    f"{d50} espèce(s)"
+                )
+                st.metric(
+                    "Part cumulée de ces espèces",
+                    f"{prop_top_d50 * 100:.1f}%"
+                )
+
+                if d50 >= 7:
+                    st.success(
+                        f"🟢 Peuplement équilibré — il faut {d50} espèces pour atteindre "
+                        "la moitié de l'activité. La vie est bien répartie sur le site."
+                    )
+                elif d50 >= 3:
+                    st.warning(
+                        f"🟠 Dominance modérée — {d50} espèces concentrent la moitié des détections. "
+                        "Correct, mais quelques espèces prennent le dessus."
+                    )
+                else:
+                    st.error(
+                        f"🔴 Forte dominance — seulement {d50} espèce(s) représentent "
+                        "la moitié de toute l'activité sonore. "
+                        "Le peuplement est déséquilibré, comme une parcelle envahie par une seule plante."
+                    )
+
+                st.caption(
+                    f"Sur les meilleurs sites du réseau, ce chiffre dépasse 7. "
+                    f"Ici il est de {d50}."
+                )
+
+            with c_d50b:
+                fig_rank = px.line(
+                    df_rank,
+                    x='rang',
+                    y='part',
+                    template="none",
+                    labels={
+                        'rang': 'Espèces classées de la plus à la moins abondante',
+                        'part': 'Part de l\'activité totale'
+                    }
+                )
+                fig_rank.add_vrect(
+                    x0=0.5, x1=d50 + 0.5,
+                    fillcolor=C_VERT_CLAIR, opacity=0.15,
+                    line_width=0,
+                    annotation_text=f"Ces {d50} espèces = 50% de l'activité",
+                    annotation_position="top left"
+                )
+                fig_rank.add_scatter(
+                    x=df_rank.head(d50)['rang'],
+                    y=df_rank.head(d50)['part'],
+                    mode='markers',
+                    marker=dict(color=C_ROUGE, size=8),
+                    name=f"Top {d50} (50% de l'activité)",
+                    showlegend=True
+                )
+                for _, row in df_rank.head(min(5, d50)).iterrows():
+                    fig_rank.add_annotation(
+                        x=row['rang'],
+                        y=row['part'] + 0.008,
+                        text=row['espece'][:15] + ("…" if len(row['espece']) > 15 else ""),
+                        showarrow=False,
+                        font=dict(size=10, color=C_VERT_SOMBRE),
+                        textangle=-30
+                    )
+                fig_rank.update_traces(
+                    line_color=C_BLEU, line_width=2,
+                    selector=dict(type='scatter', mode='lines')
+                )
+                fig_rank.update_layout(
+                    paper_bgcolor=C_FOND, plot_bgcolor=C_FOND,
+                    height=340,
+                    title="Répartition de l'activité entre les espèces",
+                    yaxis=dict(title="Part de l'activité totale"),
+                    legend=dict(orientation="h", y=-0.2)
+                )
+                st.plotly_chart(fig_rank, use_container_width=True)
+
+        st.markdown("---")
+
+        # ---------------------------------------------------------
+        # 7. Stabilité Bray-Curtis — informatif uniquement
+        # ---------------------------------------------------------
+        st.markdown("### 🌊 Stabilité de la communauté semaine après semaine")
+
+        st.caption(
+            "Cet indicateur mesure si les mêmes espèces, dans les mêmes proportions, "
+            "sont présentes d'une semaine à l'autre. "
+            "Une forte stabilité indique un milieu cohérent et peu perturbé. "
+            "Une instabilité soudaine peut signaler un événement extérieur : "
+            "traitement phytosanitaire, travaux, épisode météo exceptionnel."
+        )
+
+        if n_semaines_bc == 0:
+            st.warning("⚠️ Pas assez de semaines enregistrées pour calculer cet indicateur.")
+        else:
+            c_bc1, c_bc2 = st.columns([1, 2])
+
+            with c_bc1:
+                st.metric(
+                    "Stabilité médiane (0 à 1)",
+                    f"{bc_median:.2f}"
+                )
+                st.metric("Semaines comparées", n_semaines_bc)
+
+                if bc_median >= 0.70:
+                    st.success("🟢 Communauté stable — les mêmes espèces reviennent régulièrement.")
+                elif bc_median >= 0.50:
+                    st.warning("🟠 Stabilité intermédiaire — quelques variations notables entre semaines.")
+                else:
+                    st.error("🔴 Instabilité marquée — la composition change fortement d'une semaine à l'autre.")
+
+                st.caption(
+                    "Un score de 1 signifie que la communauté est identique d'une semaine à l'autre. "
+                    "Un score de 0 signifie qu'elle est complètement différente."
+                )
+                st.caption(
+                    "ℹ️ Indicateur informatif — non intégré dans la note E1C. "
+                    "Sur notre corpus de référence, les sites les plus riches montrent "
+                    "paradoxalement plus de variation hebdomadaire, ce qui rend cet "
+                    "indicateur difficile à calibrer universellement."
+                )
+
+            with c_bc2:
+                if not df_bc_weekly.empty:
+                    df_bc_plot = df_bc_weekly.dropna(subset=['bc_similarity']).copy()
+                    fig_bc = px.bar(
+                        df_bc_plot,
+                        x='week_id',
+                        y='bc_similarity',
+                        template="none",
+                        text_auto=".2f"
+                    )
+                    fig_bc.add_hline(
+                        y=bc_median, line_dash="dash", line_color=C_ROUGE,
+                        annotation_text=f"Médiane {bc_median:.2f}",
+                        annotation_position="top right"
+                    )
+                    fig_bc.update_traces(
+                        marker_color=C_MAUVE,
+                        marker_line_color=C_VERT_SOMBRE,
+                        marker_line_width=1,
+                        textposition="outside"
+                    )
+                    fig_bc.update_layout(
+                        paper_bgcolor=C_FOND, plot_bgcolor=C_FOND,
+                        height=320,
+                        title="Ressemblance avec la semaine précédente",
+                        yaxis=dict(range=[0, 1.1], title="Score de ressemblance (0 à 1)"),
+                        xaxis=dict(tickangle=-45, title="Semaine"),
+                    )
+                    fig_bc.update_xaxes(type="category")
+                    st.plotly_chart(fig_bc, use_container_width=True)
+
+        st.markdown("---")
+
+        # ---------------------------------------------------------
+        # 7bis. NOUVEAU — Pression anthropique matinale
+        # Basé sur : Somervuo et al. (2025) Nature Ecology & Evolution
+        #            Pérez-Granados (2023) Ibis
+        #            Fradet et al. (2025) J. Acoust. Soc. Am.
+        # ---------------------------------------------------------
+        st.markdown("### 🏙️ Pression anthropique sur le chorus de l'aube")
+
+        st.caption(
+            "Le bruit anthropique (trafic, activité humaine) survient précisément "
+            "tôt le matin, en conflit direct avec le chorus de l'aube. "
+            "Cet indicateur estime cette pression via deux proxies calculés "
+            "depuis vos données BirdNET : le score de confiance moyen et la richesse "
+            "spécifique sur la fenêtre 5h-8h comparés à la journée (9h-18h). "
+            "Un score de confiance plus faible le matin suggère un masquage acoustique."
+        )
+
+        if pressure["n_auroral"] < 10 or pressure["n_diurne"] < 10:
+            st.warning(
+                "⚠️ Pas assez de données sur l'une des deux fenêtres temporelles "
+                "pour estimer la pression anthropique matinale."
+            )
+        else:
+            col_p1, col_p2, col_p3 = st.columns(3)
+
+            col_p1.metric(
+                "Niveau de pression estimé",
+                pressure["pressure_level"],
+                help=(
+                    "Faible = pas de signal de masquage détecté. "
+                    "Modérée = un proxy montre un signal. "
+                    "Élevée = les deux proxies convergent."
+                )
             )
 
-            if dominance_ratio < DIAG_THRESHOLDS_SOUND["dominance_good"]:
-                st.success("🟢 Peuplement acoustique bien réparti")
-            elif dominance_ratio < DIAG_THRESHOLDS_SOUND["dominance_medium"]:
-                st.warning("🟠 Dominance modérée")
+            if pressure["richesse_ratio"] is not None:
+                col_p2.metric(
+                    "Richesse auroral / diurne",
+                    f"{pressure['richesse_ratio']:.2f}",
+                    help=(
+                        f"{pressure['richesse_auroral']} espèces sur 5h-8h "
+                        f"vs {pressure['richesse_diurne']} espèces sur 9h-18h. "
+                        "Un ratio < 0.65 peut signaler une suppression du chorus."
+                    )
+                )
             else:
-                st.error("🔴 Forte dominance de quelques espèces")
+                col_p2.metric("Richesse auroral / diurne", "n.c.")
 
-        with c6:
-            st.dataframe(
-                df_top_dom.rename(columns={
-                    "vernacular_name": "Espèce",
-                    "detection_count": "Détections"
-                }),
-                use_container_width=True,
-                hide_index=True
-            )
-
-        # ---------------------------------------------------------
-        # 7. Structure horaire
-        # ---------------------------------------------------------
-        prop_nuit_diag, _ = compute_anthropic_pressure_index(df)
-
-        st.markdown("### 🌙 Structure horaire de l’activité")
-
-        c7, c8 = st.columns([1, 1.5])
-
-        with c7:
-            st.metric(
-                "Activité nocturne",
-                f"{prop_nuit_diag:.1f}%"
-            )
-
-            if prop_nuit_diag < DIAG_THRESHOLDS_SOUND["nocturnite_low"]:
-                st.success("🟢 Nocturnité faible")
-            elif prop_nuit_diag < DIAG_THRESHOLDS_SOUND["nocturnite_medium"]:
-                st.warning("🟠 Nocturnité modérée")
+            if pressure["has_confidence_data"] and pressure["confidence_ratio"] is not None:
+                col_p3.metric(
+                    "Confiance BirdNET auroral / diurne",
+                    f"{pressure['confidence_ratio']:.2f}",
+                    help=(
+                        f"Score moyen 5h-8h : {pressure['confidence_auroral']:.2f} "
+                        f"vs 9h-18h : {pressure['confidence_diurne']:.2f}. "
+                        "Un ratio < 0.85 suggère un masquage par le bruit."
+                    )
+                )
             else:
-                st.error("🔴 Nocturnité élevée")
+                col_p3.metric(
+                    "Confiance BirdNET auroral / diurne",
+                    "n.c.",
+                    help="Colonne 'Birdnet_confidence_index' absente des données."
+                )
 
-        with c8:
-            # Liste des espèces témoins (diurnes)
-            especes_temoin = sorted(
-                df[~df['vernacular_name'].isin(ESPECES_NOCTURNES_NATURELLES)]['vernacular_name']
-                .dropna()
-                .unique()
-            )
+            if pressure["pressure_level"] == "Élevée":
+                st.error(
+                    "🔴 **Pression anthropique matinale élevée** — "
+                    "les deux signaux convergent : le chorus de l'aube est probablement "
+                    "perturbé ou masqué par du bruit d'origine humaine entre 5h et 8h. "
+                    "Cela peut sous-estimer l'ADI auroral et la richesse réelle du site. "
+                    "Une validation terrain est fortement recommandée."
+                )
+            elif pressure["pressure_level"] == "Modérée":
+                st.warning(
+                    "🟠 **Pression anthropique matinale modérée** — "
+                    "un des indicateurs montre un signal de perturbation. "
+                    "Le chorus de l'aube est potentiellement affecté. "
+                    "Croiser avec une observation directe pour confirmer."
+                )
+            else:
+                st.success(
+                    "🟢 **Pression anthropique matinale faible** — "
+                    "aucun signal de masquage acoustique détecté sur la fenêtre 5h-8h."
+                )
 
-            # Limite à 10 espèces pour lisibilité
-            liste_especes = ", ".join(especes_temoin[:10])
-            if len(especes_temoin) > 10:
-                liste_especes += "..."
+            with st.expander("📊 Voir les valeurs détaillées"):
+                detail_data = {
+                    "Fenêtre": ["Auroral (5h-8h)", "Diurne (9h-18h)"],
+                    "Nb détections": [
+                        pressure["n_auroral"],
+                        pressure["n_diurne"]
+                    ],
+                    "Richesse spécifique": [
+                        pressure["richesse_auroral"],
+                        pressure["richesse_diurne"]
+                    ],
+                }
+                if pressure["has_confidence_data"]:
+                    detail_data["Confiance BirdNET moyenne"] = [
+                        f"{pressure['confidence_auroral']:.3f}" if pressure["confidence_auroral"] else "n.c.",
+                        f"{pressure['confidence_diurne']:.3f}" if pressure["confidence_diurne"] else "n.c."
+                    ]
 
-            st.info(
-                f"Cet indicateur est calculé uniquement à partir des espèces dites « témoins », c’est-à-dire des espèces normalement actives en journée "
-                f"({liste_especes}). Une activité nocturne importante chez ces espèces peut traduire une modification de leur rythme naturel, "
-                f"potentiellement liée à des perturbations (lumière artificielle, bruit, dérangement). "
-                f"Cependant, cet indicateur reste indirect et doit être interprété en tenant compte du contexte écologique, des espèces présentes et de la période d’enregistrement."
-            )
+                st.table(pd.DataFrame(detail_data))
+
+                st.caption(
+                    "**Sources méthodologiques :** "
+                    "Somervuo et al. (2025) *Nature Ecology & Evolution* — "
+                    "conflits entre bruit anthropique et chorus de l'aube. "
+                    "Pérez-Granados (2023) *Ibis* — chute des scores BirdNET "
+                    "en présence de bruit de fond. "
+                    "Fradet et al. (2025) *J. Acoust. Soc. Am.* — "
+                    "masquage acoustique et faux négatifs BirdNET."
+                )
+
+        st.markdown("---")
 
         # ---------------------------------------------------------
-        # 8. Lecture écologique automatique
+        # 8. Lecture écologique synthétique
         # ---------------------------------------------------------
+        st.markdown("### 🧾 Ce que nous disent ces données")
+
         commentaires = []
 
-        if bootstrap_results:
-            richesse_val = bootstrap_results["S"][0]
-            shannon_val = bootstrap_results["H"][0]
-            simpson_val = bootstrap_results["InvD"][0]
-
-            # Richesse spécifique
-            if richesse_val >= E1C_REFERENCE_SOUND["Richesse"]["max"] * 0.85:
-                commentaires.append("La richesse spécifique est élevée dans le référentiel acoustique.")
-            elif richesse_val >= E1C_REFERENCE_SOUND["Richesse"]["min"] + (E1C_REFERENCE_SOUND["Richesse"]["max"] - E1C_REFERENCE_SOUND["Richesse"]["min"]) * 0.4:
-                commentaires.append("La richesse spécifique est intermédiaire.")
-            else:
-                commentaires.append("La richesse spécifique reste limitée.")
-
-            # Shannon
-            if shannon_val >= E1C_REFERENCE_SOUND["Shannon"]["max"] * 0.93:
-                commentaires.append("La diversité spécifique est élevée.")
-            elif shannon_val >= E1C_REFERENCE_SOUND["Shannon"]["min"] + (E1C_REFERENCE_SOUND["Shannon"]["max"] - E1C_REFERENCE_SOUND["Shannon"]["min"]) * 0.4:
-                commentaires.append("La diversité spécifique est intermédiaire.")
-            else:
-                commentaires.append("La diversité spécifique reste limitée.")
-
-            # Simpson
-            if simpson_val >= E1C_REFERENCE_SOUND["Simpson"]["max"] * 0.85:
-                commentaires.append("La structure du peuplement est diversifiée et peu dominée.")
-            elif simpson_val >= E1C_REFERENCE_SOUND["Simpson"]["min"] + (E1C_REFERENCE_SOUND["Simpson"]["max"] - E1C_REFERENCE_SOUND["Simpson"]["min"]) * 0.4:
-                commentaires.append("La structure du peuplement est intermédiaire.")
-            else:
-                commentaires.append("Le peuplement semble dominé par un nombre limité d'espèces.")
-
-        if pd.notna(cv_shannon):
-            if cv_shannon < DIAG_THRESHOLDS_SOUND["cv_stable"]:
-                commentaires.append("La dynamique temporelle apparaît stable.")
-            elif cv_shannon < DIAG_THRESHOLDS_SOUND["cv_medium"]:
-                commentaires.append("La dynamique temporelle est modérément variable.")
-            else:
-                commentaires.append("La variabilité temporelle est élevée, ce qui suggère une stabilité plus faible.")
+        # Richesse
+        s_val = bootstrap_results["S"][0] if bootstrap_results else 0
+        if s_val >= DIAGNOSTIC_REFERENCES["Richesse"]["max"] * 0.85:
+            commentaires.append(
+                f"Avec {int(round(s_val))} espèces détectées, ce site présente une richesse élevée "
+                "par rapport aux sites de référence du réseau."
+            )
+        elif s_val >= DIAGNOSTIC_REFERENCES["Richesse"]["min"] + \
+             (DIAGNOSTIC_REFERENCES["Richesse"]["max"] - DIAGNOSTIC_REFERENCES["Richesse"]["min"]) * 0.4:
+            commentaires.append(
+                f"La richesse en espèces ({int(round(s_val))}) est dans la moyenne du réseau."
+            )
         else:
-            commentaires.append("La stabilité temporelle n’est pas calculable sur cette période.")
+            commentaires.append(
+                f"Avec {int(round(s_val))} espèces, la diversité reste limitée "
+                "par rapport aux sites de référence."
+            )
 
-        if dominance_ratio < DIAG_THRESHOLDS_SOUND["dominance_good"]:
-            commentaires.append("Le peuplement acoustique est relativement bien réparti entre les espèces.")
-        elif dominance_ratio < DIAG_THRESHOLDS_SOUND["dominance_medium"]:
-            commentaires.append("Quelques espèces structurent fortement le peuplement.")
+        # Piélou
+        j_val = bootstrap_results["J"][0] if bootstrap_results else 0
+        if j_val >= 0.74:
+            commentaires.append(
+                "Les espèces présentes sont bien réparties — aucune n'écrase les autres."
+            )
+        elif j_val >= 0.66:
+            commentaires.append(
+                "La répartition entre espèces est correcte, avec quelques espèces légèrement dominantes."
+            )
         else:
-            commentaires.append("Le site est fortement dominé par un petit nombre d'espèces.")
+            commentaires.append(
+                "Quelques espèces dominent nettement l'ensemble des détections, "
+                "ce qui traduit un peuplement déséquilibré."
+            )
 
-        if prop_nuit_diag < DIAG_THRESHOLDS_SOUND["nocturnite_low"]:
-            commentaires.append("La structure horaire est globalement cohérente avec une activité majoritairement diurne des espèces témoins.")
-        elif prop_nuit_diag < DIAG_THRESHOLDS_SOUND["nocturnite_medium"]:
-            commentaires.append("La nocturnité est modérée et mérite une lecture contextualisée.")
+        # ADI auroral
+        if n_jours_chorus == 0:
+            commentaires.append(
+                "Le concert du matin n'a pas pu être analysé faute d'enregistrements "
+                f"entre {CHORUS_HEURE_DEBUT}h et {CHORUS_HEURE_FIN}h."
+            )
+        elif adi_median >= 6:
+            commentaires.append(
+                f"Le matin, {adi_median:.1f} espèces chantent en moyenne — "
+                "un chorus riche, signe d'un site vivant et peu perturbé."
+            )
+        elif adi_median >= 4:
+            commentaires.append(
+                f"Le chorus du matin est modéré ({adi_median:.1f} espèces en moyenne) — "
+                "correct, mais en dessous des meilleurs sites du réseau."
+            )
         else:
-            commentaires.append("La nocturnité est élevée chez les espèces témoins diurnes, ce qui peut traduire une désynchronisation des rythmes d’activité.")
+            commentaires.append(
+                f"Seulement {adi_median:.1f} espèces chantent en moyenne le matin — "
+                "un signal faible qui mérite une investigation sur les causes possibles "
+                "(perturbations nocturnes, manque de haies et lisières, traitements)."
+            )
 
-        st.markdown("### 🧾 Lecture écologique")
+        # D50
+        if d50 >= 7:
+            commentaires.append(
+                f"L'activité sonore est bien partagée entre les espèces "
+                f"(il en faut {d50} pour atteindre la moitié des détections)."
+            )
+        elif d50 >= 4:
+            commentaires.append(
+                f"{d50} espèces concentrent la moitié des détections — "
+                "une dominance modérée, à surveiller dans le temps."
+            )
+        else:
+            commentaires.append(
+                f"Seulement {d50} espèce(s) représentent la moitié de toute l'activité — "
+                "le site est dominé par très peu d'espèces."
+            )
+
+        # Bray-Curtis (informatif)
+        if n_semaines_bc > 0:
+            if bc_median >= 0.70:
+                commentaires.append(
+                    "La communauté est stable d'une semaine à l'autre : "
+                    "les mêmes espèces reviennent régulièrement."
+                )
+            elif bc_median >= 0.50:
+                commentaires.append(
+                    "La composition de la communauté varie modérément selon les semaines."
+                )
+            else:
+                commentaires.append(
+                    "La communauté change notablement d'une semaine à l'autre — "
+                    "vérifiez s'il y a eu des perturbations ponctuelles sur cette période."
+                )
+
+        # NOUVEAU — Pression anthropique dans la lecture synthétique
+        if pressure["pressure_level"] == "Élevée":
+            commentaires.append(
+                "Une pression anthropique matinale élevée a été détectée — "
+                "les indicateurs du chorus de l'aube sont à interpréter avec prudence."
+            )
+        elif pressure["pressure_level"] == "Modérée":
+            commentaires.append(
+                "Un signal modéré de pression anthropique matinale est présent — "
+                "une validation terrain permettrait de confirmer l'état réel du chorus."
+            )
+
         st.write(" ".join(commentaires))
 
-        # ---------------------------------------------------------
-        # 9. Forces / Points de vigilance / Recommandations
-        # ---------------------------------------------------------
-        st.markdown("### 🧭 Forces / Points de vigilance / Recommandations")
+        st.markdown("---")
 
-        forces = []
-        vigilances = []
-        recommandations = []
+        # ---------------------------------------------------------
+        # 9. Forces / Vigilances / Recommandations
+        # ---------------------------------------------------------
+        st.markdown("### 🧭 Points forts / Points de vigilance / Recommandations")
+
+        forces, vigilances, recommandations = [], [], []
 
         # Forces
-        if score_e1c >= E1C_THRESHOLDS_SOUND["high"]:
-            forces.append("Indice E1C excellent dans le référentiel acoustique.")
-        elif score_e1c >= E1C_THRESHOLDS_SOUND["medium"]:
-            forces.append("Indice E1C bon, cohérent avec un site de bon niveau écologique.")
-
-        if score_simpson >= 60:
-            forces.append("Bonne structure du peuplement acoustique.")
-        if score_richesse >= 60:
-            forces.append("Richesse spécifique satisfaisante à élevée.")
-        if score_shannon >= 60:
-            forces.append("Diversité spécifique satisfaisante à élevée.")
-        if pd.notna(cv_shannon) and cv_shannon < DIAG_THRESHOLDS_SOUND["cv_stable"]:
-            forces.append("Bonne stabilité temporelle des indices.")
-        if dominance_ratio < DIAG_THRESHOLDS_SOUND["dominance_good"]:
-            forces.append("Absence de forte domination par un petit nombre d'espèces.")
-        if prop_nuit_diag < DIAG_THRESHOLDS_SOUND["nocturnite_low"]:
-            forces.append("Structure horaire globalement peu nocturne chez les espèces témoins.")
+        if e1c["score_e1c"] >= E1C_SEUILS["excellent"]:
+            forces.append("Site de référence écologique — niveau excellent dans le réseau.")
+        elif e1c["score_e1c"] >= E1C_SEUILS["bon"]:
+            forces.append("Bon niveau écologique global.")
+        if e1c["score_richesse"] >= 60:
+            forces.append("Bonne diversité en espèces d'oiseaux.")
+        if e1c["score_pielou"] >= 60:
+            forces.append("Les espèces sont bien réparties — pas de domination excessive.")
+        if e1c["score_adi"] >= 60:
+            forces.append("Concert du matin riche — signe d'un site sain et peu perturbé.")
+        if d50 >= 6:
+            forces.append(f"Activité sonore bien partagée entre les espèces (D50 = {d50}).")
+        if bc_median >= 0.70 and n_semaines_bc > 0:
+            forces.append("Communauté stable dans le temps.")
+        if pressure["pressure_level"] == "Faible":
+            forces.append(
+                "Pression anthropique matinale faible — "
+                "le chorus de l'aube n'est pas masqué."
+            )
 
         # Vigilances
-        if score_e1c < E1C_THRESHOLDS_SOUND["low"]:
-            vigilances.append("Indice E1C faible dans le référentiel acoustique.")
-        if score_simpson < 40:
-            vigilances.append("Structure du peuplement simplifiée.")
-        if score_richesse < 40:
-            vigilances.append("Richesse spécifique limitée.")
-        if score_shannon < 40:
-            vigilances.append("Diversité spécifique limitée.")
-        if pd.notna(cv_shannon) and cv_shannon >= DIAG_THRESHOLDS_SOUND["cv_medium"]:
-            vigilances.append("Variabilité temporelle élevée.")
-        if dominance_ratio >= DIAG_THRESHOLDS_SOUND["dominance_medium"]:
-            vigilances.append("Forte dominance de quelques espèces.")
-        if prop_nuit_diag >= DIAG_THRESHOLDS_SOUND["nocturnite_medium"]:
-            vigilances.append("Nocturnité élevée des espèces témoins diurnes, à interpréter selon les espèces, la saison et le contexte local.")
+        if e1c["score_e1c"] < E1C_SEUILS["intermediaire"]:
+            vigilances.append("Note globale faible — la biodiversité sonore est appauvrie.")
+        if e1c["score_adi"] < 40:
+            vigilances.append(
+                "Concert du matin peu fourni — premier signal d'alerte à ne pas négliger."
+            )
+        if n_jours_chorus < 5:
+            vigilances.append(
+                f"Peu de matins couverts ({n_jours_chorus}) — "
+                "la mesure du chorus de l'aube n'est pas assez robuste."
+            )
+        if d50 <= 2:
+            vigilances.append(
+                f"Très forte domination : {d50} espèce(s) seulement font la moitié de l'activité."
+            )
+        if e1c["score_pielou"] < 40:
+            vigilances.append(
+                "Peuplement déséquilibré — quelques espèces prennent nettement le dessus."
+            )
+        if e1c["score_richesse"] < 40:
+            vigilances.append("Peu d'espèces différentes détectées sur ce site.")
+        if pressure["pressure_level"] == "Élevée":
+            vigilances.append(
+                "Pression anthropique matinale élevée — les indicateurs du chorus "
+                "de l'aube peuvent être sous-estimés."
+            )
+        elif pressure["pressure_level"] == "Modérée":
+            vigilances.append(
+                "Signal modéré de pression anthropique matinale — "
+                "à surveiller sur les prochaines sessions."
+            )
 
         # Recommandations
-        if score_e1c < E1C_THRESHOLDS_SOUND["high"]:
-            recommandations.append("Poursuivre le suivi pour confirmer la trajectoire écologique du site dans le temps.")
-        if score_simpson < 40 or score_richesse < 40:
-            recommandations.append("Renforcer la diversité et la connectivité des habitats autour du site.")
-        if dominance_ratio >= DIAG_THRESHOLDS_SOUND["dominance_medium"]:
-            recommandations.append("Examiner les facteurs favorisant la sur-dominance de certaines espèces.")
-        if pd.notna(cv_shannon) and cv_shannon >= DIAG_THRESHOLDS_SOUND["cv_medium"]:
-            recommandations.append("Analyser les facteurs saisonniers, paysagers ou de gestion pouvant expliquer l’instabilité observée.")
-        if prop_nuit_diag >= DIAG_THRESHOLDS_SOUND["nocturnite_medium"]:
-            recommandations.append("Interpréter la structure horaire en lien avec les espèces détectées, la saison, la lumière artificielle éventuelle et le protocole d’enregistrement.")
+        if e1c["score_adi"] < 60:
+            recommandations.append(
+                "Vérifier que les enregistreurs fonctionnent bien entre 5h et 8h — "
+                "c'est la fenêtre la plus importante pour évaluer la santé du site."
+            )
+        if d50 <= 3:
+            recommandations.append(
+                "Diversifier les habitats autour du site : haies, bandes enherbées, "
+                "zones refuges. Cela favorise l'installation d'espèces moins communes."
+            )
+        if e1c["score_richesse"] < 50:
+            recommandations.append(
+                "Renforcer la connectivité avec les milieux voisins "
+                "(corridors, lisières, zones non traitées) pour favoriser l'arrivée "
+                "de nouvelles espèces."
+            )
 
+        # NOUVEAU — Validation terrain conditionnelle
+        # Conforme aux recommandations de
+        # Nature Ecology & Evolution (2025) et Sethi et al. (2023)
+        needs_validation = (
+            e1c["score_e1c"] < E1C_SEUILS["bon"] or
+            n_jours_chorus < 5 or
+            pressure["pressure_level"] in ["Élevée", "Modérée"]
+        )
+
+        if needs_validation:
+            reasons = []
+            if e1c["score_e1c"] < E1C_SEUILS["bon"]:
+                reasons.append("score E1C inférieur au seuil « Bon »")
+            if n_jours_chorus < 5:
+                reasons.append(
+                    f"chorus de l'aube analysé sur seulement {n_jours_chorus} matin(s)"
+                )
+            if pressure["pressure_level"] in ["Élevée", "Modérée"]:
+                reasons.append("signal de pression anthropique matinale détecté")
+
+            recommandations.append(
+                "⚠️ **Validation terrain recommandée** ("
+                + ", ".join(reasons)
+                + "). Les indices acoustiques automatisés atteignent leurs limites "
+                "dans ce contexte — une confirmation par observation directe "
+                "(point d'écoute, IPA) est conseillée pour fiabiliser le diagnostic "
+                "*(Nature Ecology & Evolution, 2025 ; Sethi et al., 2023)*."
+            )
+
+        if e1c["score_e1c"] < E1C_SEUILS["excellent"]:
+            recommandations.append(
+                "Poursuivre le suivi sur plusieurs saisons pour confirmer les tendances "
+                "et mesurer l'effet des pratiques mises en place."
+            )
+
+        # Fallbacks
         if not forces:
-            forces.append("Aucun signal écologique fortement positif ne ressort nettement sur la période considérée.")
+            forces.append("Pas de signal fortement positif identifié sur cette période.")
         if not vigilances:
-            vigilances.append("Pas de point de vigilance majeur détecté sur la période analysée.")
+            vigilances.append("Pas de point de vigilance majeur détecté.")
         if not recommandations:
-            recommandations.append("Maintenir le protocole de suivi actuel afin de consolider les tendances observées.")
+            recommandations.append("Maintenir le protocole de suivi en place.")
 
         col_f, col_v, col_r = st.columns(3)
 
         with col_f:
-            st.markdown("#### ✅ Forces")
+            st.markdown("#### ✅ Points forts")
             for item in forces:
                 st.write(f"• {item}")
 
@@ -5486,15 +6285,94 @@ Pour les oiseaux diurnes, si ce chiffre dépasse 15 à 20%, cela traduit souvent
                 st.write(f"• {item}")
 
         # ---------------------------------------------------------
-        # 10. Définition de l’indice E1C
+        # 10. NOUVEAU — Note méthodologique enrichie
         # ---------------------------------------------------------
-        st.info(
-            "L’indice E1C (Every1Counts) version SON combine la structure du peuplement "
-            "(Simpson 1/D), la richesse spécifique, la diversité (Shannon) et la stabilité temporelle. "
-            "La calibration repose sur les sites acoustiques de référence intégrés au référentiel Every1Counts."
-        )
+        with st.expander("ℹ️ Comment est calculée la note E1C ? Méthode et limites"):
+            st.markdown("""
+### Composition de l'indice E1C
 
-        # ---------------- TAB UICN ----------------
+La note E1C combine 4 mesures, chacune évaluée par rapport aux sites de référence du réseau :
+
+| Mesure | Ce qu'elle évalue | Poids |
+|---|---|---|
+| Concert du matin (ADI) | Richesse du chorus entre 5h et 8h | 40% |
+| Nombre d'espèces (S) | Diversité totale détectée | 35% |
+| Équilibre (D50) | Répartition de l'activité entre espèces | 15% |
+| Répartition (Piélou) | Absence de domination excessive | 10% |
+
+**Seuils** : Excellent ≥ 72 · Bon ≥ 52 · Intermédiaire ≥ 32 · Faible < 32
+
+**Sites de référence utilisés pour la calibration (n=8)** :
+Castries, Boston, Espeyran, Etrechy, LaPeyruche, Lavallière, Purcari, Villevert.
+
+Le concert du matin a le plus grand poids car c'est le premier indicateur
+à se dégrader quand un milieu est perturbé — avant même que le nombre
+total d'espèces ne diminue.
+
+---
+
+### Contexte scientifique
+
+Le monitoring acoustique passif est en plein essor comme outil de suivi de la biodiversité,
+porté par les avancées en capteurs, stockage et intelligence artificielle.
+Plusieurs résultats récents éclairent directement la lecture des indices présentés ici.
+
+**Sur le chorus de l'aube :**
+Les soundscapes biologiques présentent des rythmes hautement prévisibles, structurés
+par la latitude, la saisonnalité et l'heure de la journée. En revanche, les soundscapes
+anthropiques sont moins prévisibles et **entrent en conflit direct avec les rythmes biologiques** :
+le bruit des véhicules tôt le matin coïncide précisément avec le chorus de l'aube.
+Ce conflit peut masquer la communication animale et exercer une pression sélective
+sur les populations *(Somervuo et al., 2025 — Nature Ecology & Evolution)*.
+
+**Sur les limites des indices acoustiques automatisés :**
+Une analyse de plus de 8 000 enregistrements collectés simultanément avec des comptages
+manuels d'oiseaux dans 4 écosystèmes tropicaux et tempérés différents **n'a identifié aucun
+indice de diversité acoustique commun aux soundscapes biodiversifiées**, ni par méthodes
+univariées ni par apprentissage automatique *(Sethi et al., 2023 — Nature Ecology & Evolution)*.
+Cela signifie que les indices comme l'E1C sont plus fiables lorsqu'ils sont **calibrés
+sur un corpus de référence local** — ce qui est le cas ici — que lorsqu'ils sont
+appliqués de façon universelle.
+
+**Sur la fiabilité de BirdNET :**
+Les scores de confiance BirdNET tendent à baisser en présence de bruit de fond intense,
+produisant des faux négatifs sur les vocalisations plus faibles *(Pérez-Granados, 2023 — Ibis)*.
+Le seuil de 0.8 appliqué par défaut dans ce dashboard est conservateur et favorise
+la précision sur le rappel.
+
+---
+
+### Limites à connaître
+
+- **L'expert humain reste le gold standard** : le monitoring acoustique automatisé
+  est un outil complémentaire, pas un substitut à l'observation directe
+  *(Nature Ecology & Evolution, 2025)*.
+- **Biais taxonomique** : les données BirdNET couvrent principalement les oiseaux.
+  44% des datasets acoustiques validés dans la littérature sont aviaires ;
+  les fréquences non-audibles par l'humain et les écosystèmes souterrains
+  restent très peu couverts *(Darras et al., 2025 — Global Ecology & Biogeography)*.
+- **Saisonnalité** : les scores doivent être interprétés en tenant compte
+  de la période d'enregistrement. Un suivi printanier (pic de chant) n'est
+  pas directement comparable à un suivi hivernal.
+- **Pression anthropique matinale** : un bruit de fond élevé entre 5h et 8h
+  peut masquer des vocalisations et sous-estimer le chorus de l'aube.
+  L'indicateur dédié dans cet onglet permet de détecter ce biais.
+- **Validation terrain recommandée** quand le score E1C est inférieur à 52
+  ou quand la pression anthropique matinale est modérée ou élevée.
+
+---
+
+### Références
+
+- Somervuo et al. (2025). *Nature Ecology & Evolution* — soundscapes globaux et conflits anthropiques
+- Sethi et al. (2023). *Nature Ecology & Evolution* 7, 1373–1378 — limites des indices acoustiques
+- Pérez-Granados (2023). *Ibis* — performances et limites de BirdNET
+- Darras et al. (2025). *Global Ecology & Biogeography* 34, 5 — gaps dans les datasets acoustiques
+- Rasmussen et al. (2024). *Science* 385, 138–140 — IA et bioacoustique
+- Fradet et al. (2025). *J. Acoust. Soc. Am.* — masquage acoustique et scores BirdNET
+            """)
+
+    # ---------------- TAB UICN ----------------
     with tab_uicn:
         st.subheader("🔴 Croisement avec la Liste Rouge UICN")
 

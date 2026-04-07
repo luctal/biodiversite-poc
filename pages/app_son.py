@@ -116,6 +116,228 @@ E1C_SEUILS = {
     "intermediaire": 32
 }
 
+# ---------------------------------------------------------
+# DICTIONNAIRE DES GUILDES FONCTIONNELLES
+# ---------------------------------------------------------
+# 4 guildes calibrées pour le contexte français / Europe tempérée
+#
+# Sources :
+# - PECBMS (Pan-European Common Bird Monitoring Scheme)
+# - EU Biodiversity Strategy Dashboard (Farmland Bird Index, Forest Bird Index)
+# - Canterbury et al. (2000) Bird Communities as Ecological Indicators
+# - Julliard et al. (2006) Specialist and generalist species in French farmland
+#
+# Guildes :
+#   FORESTIER   : spécialistes de forêt mature — haute valeur écologique
+#   AGRICOLE    : spécialistes des milieux ouverts, prairies, cultures
+#   GENERALISTE : espèces ubiquistes, adaptées aux milieux anthropisés
+#   PATRIMONIAL : espèces à haute valeur de conservation (rapaces, migrateurs
+#                 longue distance, espèces sensibles)
+# ---------------------------------------------------------
+ 
+GUILDES_FONCTIONNELLES = {
+ 
+    # -------------------------------------------------------
+    # SPÉCIALISTES FORESTIERS
+    # Dépendants de forêts matures, lisières boisées
+    # Indicateurs de connectivité et de maturité forestière
+    # -------------------------------------------------------
+    "Grimpereau des jardins":       "FORESTIER",
+    "Grimpereau des bois":          "FORESTIER",
+    "Sittelle torchepot":           "FORESTIER",
+    "Pic épeiche":                  "FORESTIER",
+    "Pic épeichette":               "FORESTIER",
+    "Pic noir":                     "FORESTIER",
+    "Pic vert":                     "FORESTIER",
+    "Pic mar":                      "FORESTIER",
+    "Pic cendré":                   "FORESTIER",
+    "Torcol fourmilier":            "FORESTIER",
+    "Mésange nonnette":             "FORESTIER",
+    "Mésange boréale":              "FORESTIER",
+    "Mésange à longue queue":       "FORESTIER",
+    "Mésange huppée":               "FORESTIER",
+    "Pouillot siffleur":            "FORESTIER",
+    "Pouillot véloce":              "FORESTIER",
+    "Pouillot fitis":               "FORESTIER",
+    "Fauvette à tête noire":        "FORESTIER",
+    "Fauvette des jardins":         "FORESTIER",
+    "Rougequeue à front blanc":     "FORESTIER",
+    "Rougequeue noir":              "FORESTIER",
+    "Rossignol philomèle":          "FORESTIER",
+    "Grive musicienne":             "FORESTIER",
+    "Grive draine":                 "FORESTIER",
+    "Merle à plastron":             "FORESTIER",
+    "Bécasse des bois":             "FORESTIER",
+    "Geai des chênes":              "FORESTIER",
+    "Loriot d'Europe":              "FORESTIER",
+    "Gobemouche gris":              "FORESTIER",
+    "Gobemouche noir":              "FORESTIER",
+    "Roitelet huppé":               "FORESTIER",
+    "Roitelet à triple bandeau":    "FORESTIER",
+    "Bruant des bois":              "FORESTIER",
+    "Coucou gris":                  "FORESTIER",
+    "Tourterelle des bois":         "FORESTIER",
+    "Pigeon colombin":              "FORESTIER",
+    "Faucon hobereau":              "FORESTIER",
+ 
+    # -------------------------------------------------------
+    # SPÉCIALISTES AGRICOLES / MILIEUX OUVERTS
+    # Prairies, cultures, bocage, zones humides
+    # Indicateurs de la qualité des milieux agricoles
+    # En fort déclin en Europe — présence = bon signal
+    # -------------------------------------------------------
+    "Alouette des champs":          "AGRICOLE",
+    "Cochevis huppé":               "AGRICOLE",
+    "Bruant jaune":                 "AGRICOLE",
+    "Bruant proyer":                "AGRICOLE",
+    "Bruant ortolan":               "AGRICOLE",
+    "Linotte mélodieuse":           "AGRICOLE",
+    "Verdier d'Europe":             "AGRICOLE",
+    "Chardonneret élégant":         "AGRICOLE",
+    "Serin cini":                   "AGRICOLE",
+    "Bergeronnette printanière":    "AGRICOLE",
+    "Bergeronnette flavéole":       "AGRICOLE",
+    "Tarier des prés":              "AGRICOLE",
+    "Tarier pâtre":                 "AGRICOLE",
+    "Traquet motteux":              "AGRICOLE",
+    "Pipit des prés":               "AGRICOLE",
+    "Pipit farlouse":               "AGRICOLE",
+    "Pipit rousseline":             "AGRICOLE",
+    "Perdrix grise":                "AGRICOLE",
+    "Caille des blés":              "AGRICOLE",
+    "Vanneau huppé":                "AGRICOLE",
+    "Courlis cendré":               "AGRICOLE",
+    "Bécassine des marais":         "AGRICOLE",
+    "Outarde canepetière":          "AGRICOLE",
+    "Busard Saint-Martin":          "AGRICOLE",
+    "Busard cendré":                "AGRICOLE",
+    "Busard des roseaux":           "AGRICOLE",
+    "Pie-grièche écorcheur":        "AGRICOLE",
+    "Pie-grièche grise":            "AGRICOLE",
+    "Hirondelle de rivage":         "AGRICOLE",
+    "Faucon crécerelle":            "AGRICOLE",
+    "Faucon kobez":                 "AGRICOLE",
+    "Guêpier d'Europe":             "AGRICOLE",
+    "Rollier d'Europe":             "AGRICOLE",
+    "Huppe fasciée":                "AGRICOLE",
+ 
+    # -------------------------------------------------------
+    # GÉNÉRALISTES / ESPÈCES UBIQUISTES
+    # Présentes dans presque tous les milieux
+    # Forte adaptabilité aux perturbations humaines
+    # Dominance croissante = signal de banalisation
+    # -------------------------------------------------------
+    "Merle noir":                   "GENERALISTE",
+    "Mésange charbonnière":         "GENERALISTE",
+    "Mésange bleue":                "GENERALISTE",
+    "Pinson des arbres":            "GENERALISTE",
+    "Rougegorge familier":          "GENERALISTE",
+    "Troglodyte mignon":            "GENERALISTE",
+    "Moineau domestique":           "GENERALISTE",
+    "Moineau friquet":              "GENERALISTE",
+    "Pigeon ramier":                "GENERALISTE",
+    "Pigeon biset":                 "GENERALISTE",
+    "Tourterelle turque":           "GENERALISTE",
+    "Corneille noire":              "GENERALISTE",
+    "Corbeau freux":                "GENERALISTE",
+    "Pie bavarde":                  "GENERALISTE",
+    "Étourneau sansonnet":          "GENERALISTE",
+    "Fauvette grisette":            "GENERALISTE",
+    "Bergeronnette grise":          "GENERALISTE",
+    "Hirondelle rustique":          "GENERALISTE",
+    "Hirondelle de fenêtre":        "GENERALISTE",
+    "Martinet noir":                "GENERALISTE",
+    "Accenteur mouchet":            "GENERALISTE",
+    "Grive litorne":                "GENERALISTE",
+    "Bouvreuil pivoine":            "GENERALISTE",
+    "Grosbec casse-noyaux":         "GENERALISTE",
+    "Sizerin flammé":               "GENERALISTE",
+    "Buse variable":                "GENERALISTE",
+    "Épervier d'Europe":            "GENERALISTE",
+    "Milan noir":                   "GENERALISTE",
+    "Héron cendré":                 "GENERALISTE",
+    "Grande Aigrette":              "GENERALISTE",
+    "Canard colvert":               "GENERALISTE",
+    "Foulque macroule":             "GENERALISTE",
+    "Gallinule poule-d'eau":        "GENERALISTE",
+ 
+    # -------------------------------------------------------
+    # ESPÈCES PATRIMONIALES
+    # Haute valeur de conservation
+    # Rapaces nocturnes, migrateurs longue distance,
+    # espèces sensibles aux perturbations
+    # Présence = très bon signal écologique
+    # -------------------------------------------------------
+    "Chouette hulotte":             "PATRIMONIAL",
+    "Chouette effraie":             "PATRIMONIAL",
+    "Chouette chevêche":            "PATRIMONIAL",
+    "Chouette de Tengmalm":         "PATRIMONIAL",
+    "Hibou grand-duc":              "PATRIMONIAL",
+    "Hibou moyen-duc":              "PATRIMONIAL",
+    "Hibou petit-duc":              "PATRIMONIAL",
+    "Hibou des marais":             "PATRIMONIAL",
+    "Chevêchette d'Europe":         "PATRIMONIAL",
+    "Milan royal":                  "PATRIMONIAL",
+    "Circaète Jean-le-Blanc":       "PATRIMONIAL",
+    "Bondrée apivore":              "PATRIMONIAL",
+    "Aigle botté":                  "PATRIMONIAL",
+    "Faucon pèlerin":               "PATRIMONIAL",
+    "Faucon émerillon":             "PATRIMONIAL",
+    "Pie-grièche à tête rousse":    "PATRIMONIAL",
+    "Engoulevent d'Europe":         "PATRIMONIAL",
+    "Martin-pêcheur d'Europe":      "PATRIMONIAL",
+    "Cincle plongeur":              "PATRIMONIAL",
+    "Gorgebleue à miroir":          "PATRIMONIAL",
+    "Phragmite des joncs":          "PATRIMONIAL",
+    "Rousserolle effarvatte":       "PATRIMONIAL",
+    "Rousserolle turdoïde":         "PATRIMONIAL",
+    "Locustelle tachetée":          "PATRIMONIAL",
+    "Locustelle luscinioïde":       "PATRIMONIAL",
+    "Bouscarle de Cetti":           "PATRIMONIAL",
+    "Hirondelle de rochers":        "PATRIMONIAL",
+    "Gobemouche à collier":         "PATRIMONIAL",
+    "Hypolaïs polyglotte":          "PATRIMONIAL",
+    "Fauvette orphée":              "PATRIMONIAL",
+    "Fauvette pitchou":             "PATRIMONIAL",
+    "Bruant fou":                   "PATRIMONIAL",
+}
+ 
+ 
+# ---------------------------------------------------------
+# LISTE DES ESPÈCES STRICTEMENT NOCTURNES
+# ---------------------------------------------------------
+# Espèces dont l'activité acoustique principale est nocturne
+# et dont la présence dans les données BirdNET est un signal
+# fort de qualité écologique (faible pollution lumineuse,
+# habitats refuges, disponibilité en proies)
+#
+# Valeur indicatrice :
+# 2 = espèce nocturne commune, signal positif modéré
+# 3 = espèce nocturne sensible, signal positif fort
+# 4 = espèce nocturne patrimoniale, signal exceptionnel
+# ---------------------------------------------------------
+ 
+ESPECES_NOCTURNES_INDICATRICES = {
+    "Chouette hulotte":         {"valeur": 3, "habitat": "Forêts matures, parcs"},
+    "Chouette effraie":         {"valeur": 2, "habitat": "Milieux ouverts, bocage"},
+    "Chouette chevêche":        {"valeur": 3, "habitat": "Vergers, bocage, prairies"},
+    "Chouette de Tengmalm":     {"valeur": 4, "habitat": "Forêts de montagne"},
+    "Hibou grand-duc":          {"valeur": 4, "habitat": "Falaises, massifs forestiers"},
+    "Hibou moyen-duc":          {"valeur": 3, "habitat": "Bocage, lisières, forêts"},
+    "Hibou petit-duc":          {"valeur": 3, "habitat": "Milieux méditerranéens"},
+    "Hibou des marais":         {"valeur": 4, "habitat": "Prairies humides, marais"},
+    "Chevêchette d'Europe":     {"valeur": 4, "habitat": "Forêts de montagne"},
+    "Engoulevent d'Europe":     {"valeur": 4, "habitat": "Landes, lisières, garrigues"},
+    "Rossignol philomèle":      {"valeur": 2, "habitat": "Buissons denses, lisières"},
+    "Rousserolle effarvatte":   {"valeur": 2, "habitat": "Roselières, zones humides"},
+    "Bouscarle de Cetti":       {"valeur": 2, "habitat": "Ripisylves, roselières"},
+    "Locustelle tachetée":      {"valeur": 3, "habitat": "Prairies humides, roselières"},
+    "Locustelle luscinioïde":   {"valeur": 3, "habitat": "Phragmitaies"},
+    "Râle des genêts":          {"valeur": 4, "habitat": "Prairies de fauche"},
+    "Marouette ponctuée":       {"valeur": 4, "habitat": "Roselières, marais"},
+    "Marouette poussin":        {"valeur": 4, "habitat": "Végétation aquatique dense"},
+}
+
 # =========================================================
 # CHARGEMENT DES DONNEES DE REFERENCE
 # =========================================================
@@ -3756,7 +3978,322 @@ def compute_e1c_v2(bootstrap_results, adi_median, d50, bc_median=None):
         "score_d50":      float(score_d50),
         "classe":         classe
     }
+
+def compute_anthropic_pressure_auroral(df_input):
+    """
+    Estime la pression anthropique matinale via deux proxies
+    calculables depuis les données BirdNET traitées.
  
+    Proxy 1 — Ratio de confiance auroral / diurne :
+        Un score de confiance BirdNET systématiquement plus faible
+        sur 5h-8h que sur 9h-18h suggère un masquage acoustique
+        (bruit de trafic, activité humaine matinale).
+        Référence : Pérez-Granados (2023), Fradet et al. (2025)
+ 
+    Proxy 2 — Ratio de richesse auroral / diurne :
+        Si la richesse spécifique sur 5h-8h est anormalement
+        basse par rapport à 9h-18h, cela peut indiquer une
+        suppression du chorus par le bruit anthropique.
+        Référence : Somervuo et al. (2025), Nature Ecol Evol
+ 
+    Returns
+    -------
+    dict avec :
+        - confidence_auroral   : score moyen sur 5h-8h
+        - confidence_diurne    : score moyen sur 9h-18h
+        - confidence_ratio     : auroral / diurne (< 0.85 = signal)
+        - richesse_auroral     : nb espèces sur 5h-8h
+        - richesse_diurne      : nb espèces sur 9h-18h
+        - richesse_ratio       : auroral / diurne (< 0.50 = signal)
+        - pressure_level       : "Faible" / "Modérée" / "Élevée"
+        - has_confidence_data  : bool (colonne dispo ou non)
+    """
+    result = {
+        "confidence_auroral":  None,
+        "confidence_diurne":   None,
+        "confidence_ratio":    None,
+        "richesse_auroral":    0,
+        "richesse_diurne":     0,
+        "richesse_ratio":      None,
+        "pressure_level":      "Non calculable",
+        "has_confidence_data": False,
+        "n_auroral":           0,
+        "n_diurne":            0
+    }
+ 
+    if df_input.empty:
+        return result
+ 
+    df_temp = df_input.copy()
+ 
+    if "Heure" not in df_temp.columns:
+        df_temp["Heure"] = pd.to_datetime(df_temp["startdate"]).dt.hour
+ 
+    # Fenêtres temporelles
+    df_auroral = df_temp[
+        (df_temp["Heure"] >= CHORUS_HEURE_DEBUT) &
+        (df_temp["Heure"] < CHORUS_HEURE_FIN)
+    ]
+    df_diurne = df_temp[
+        (df_temp["Heure"] >= 9) &
+        (df_temp["Heure"] < 18)
+    ]
+ 
+    result["n_auroral"] = len(df_auroral)
+    result["n_diurne"]  = len(df_diurne)
+ 
+    # Richesse spécifique sur chaque fenêtre
+    result["richesse_auroral"] = df_auroral["vernacular_name"].nunique()
+    result["richesse_diurne"]  = df_diurne["vernacular_name"].nunique()
+ 
+    if result["richesse_diurne"] > 0:
+        result["richesse_ratio"] = (
+            result["richesse_auroral"] / result["richesse_diurne"]
+        )
+ 
+    # Proxy confiance BirdNET (si disponible)
+    if "Birdnet_confidence_index" in df_temp.columns:
+        result["has_confidence_data"] = True
+ 
+        conf_auroral = pd.to_numeric(
+            df_auroral["Birdnet_confidence_index"], errors="coerce"
+        ).dropna()
+        conf_diurne = pd.to_numeric(
+            df_diurne["Birdnet_confidence_index"], errors="coerce"
+        ).dropna()
+ 
+        if len(conf_auroral) > 0:
+            result["confidence_auroral"] = float(conf_auroral.mean())
+        if len(conf_diurne) > 0:
+            result["confidence_diurne"] = float(conf_diurne.mean())
+ 
+        if (result["confidence_auroral"] is not None and
+                result["confidence_diurne"] is not None and
+                result["confidence_diurne"] > 0):
+            result["confidence_ratio"] = (
+                result["confidence_auroral"] / result["confidence_diurne"]
+            )
+ 
+    # -------------------------------------------------------
+    # Évaluation du niveau de pression
+    # Logique combinée des deux proxies disponibles
+    # -------------------------------------------------------
+    signals = []
+ 
+    # Signal 1 : ratio confiance
+    if result["confidence_ratio"] is not None:
+        if result["confidence_ratio"] < 0.85:
+            signals.append("fort")
+        elif result["confidence_ratio"] < 0.92:
+            signals.append("modéré")
+        else:
+            signals.append("faible")
+ 
+    # Signal 2 : ratio richesse
+    if result["richesse_ratio"] is not None:
+        if result["richesse_ratio"] < 0.45:
+            signals.append("fort")
+        elif result["richesse_ratio"] < 0.65:
+            signals.append("modéré")
+        else:
+            signals.append("faible")
+ 
+    if not signals:
+        result["pressure_level"] = "Non calculable"
+    elif signals.count("fort") >= 1:
+        result["pressure_level"] = "Élevée"
+    elif signals.count("modéré") >= 1:
+        result["pressure_level"] = "Modérée"
+    else:
+        result["pressure_level"] = "Faible"
+ 
+    return result
+
+def compute_guild_analysis(df_input):
+    """
+    Analyse la composition fonctionnelle de la communauté détectée.
+ 
+    Pour chaque espèce présente dans le dataset, on lui attribue
+    une guilde fonctionnelle via GUILDES_FONCTIONNELLES.
+ 
+    Returns
+    -------
+    dict avec :
+        - df_guildes       : DataFrame (vernacular_name, guilde, detections)
+        - counts           : dict {guilde: nb_especes}
+        - proportions      : dict {guilde: proportion 0-1}
+        - n_identified     : nb espèces identifiées dans le dictionnaire
+        - n_total          : nb espèces total dans les données
+        - specialisation   : ratio spécialistes+patrimoniaux / généralistes
+        - score_fonctionnel: score 0-100
+        - label_fonctionnel: "Riche", "Intermédiaire", "Banalisée"
+    """
+    result = {
+        "df_guildes":          pd.DataFrame(),
+        "counts":              {g: 0 for g in ["FORESTIER", "AGRICOLE", "GENERALISTE", "PATRIMONIAL"]},
+        "proportions":         {g: 0.0 for g in ["FORESTIER", "AGRICOLE", "GENERALISTE", "PATRIMONIAL"]},
+        "n_identified":        0,
+        "n_total":             0,
+        "specialisation":      0.0,
+        "score_fonctionnel":   0.0,
+        "label_fonctionnel":   "Non calculable"
+    }
+ 
+    if df_input.empty:
+        return result
+ 
+    # 1. Richesse et abondance par espèce
+    df_species = (
+        df_input.groupby("vernacular_name")["detection_count"]
+        .sum().reset_index()
+        .rename(columns={"detection_count": "detections"})
+    )
+    result["n_total"] = len(df_species)
+ 
+    # 2. Attribution des guildes
+    df_species["guilde"] = df_species["vernacular_name"].map(
+        GUILDES_FONCTIONNELLES
+    ).fillna("INCONNU")
+ 
+    result["n_identified"] = (df_species["guilde"] != "INCONNU").sum()
+    result["df_guildes"]   = df_species.copy()
+ 
+    # 3. Comptage par guilde
+    df_classified = df_species[df_species["guilde"] != "INCONNU"]
+    for guilde in ["FORESTIER", "AGRICOLE", "GENERALISTE", "PATRIMONIAL"]:
+        result["counts"][guilde] = int((df_classified["guilde"] == guilde).sum())
+ 
+    total_classified = sum(result["counts"].values())
+    if total_classified > 0:
+        for g in result["counts"]:
+            result["proportions"][g] = result["counts"][g] / total_classified
+ 
+    # 4. Indice de spécialisation
+    n_spec = (result["counts"]["FORESTIER"] +
+              result["counts"]["AGRICOLE"] +
+              result["counts"]["PATRIMONIAL"])
+    n_gen  = result["counts"]["GENERALISTE"]
+ 
+    if n_gen > 0:
+        result["specialisation"] = n_spec / n_gen
+    elif n_spec > 0:
+        result["specialisation"] = float(n_spec)
+    else:
+        result["specialisation"] = 0.0
+ 
+    # 5. Score de fonctionnalité
+    # Forestier/Agricole × 2 + Patrimonial × 4 + Généraliste × 0.5
+    # Normalisé sur référence 40 pts
+    score_brut = (
+        result["counts"]["FORESTIER"]   * 2.0 +
+        result["counts"]["AGRICOLE"]    * 2.0 +
+        result["counts"]["PATRIMONIAL"] * 4.0 +
+        result["counts"]["GENERALISTE"] * 0.5
+    )
+    result["score_fonctionnel"] = float(min(score_brut / 40.0 * 100, 100.0))
+ 
+    # 6. Label
+    if result["score_fonctionnel"] >= 65:
+        result["label_fonctionnel"] = "Communauté riche et diversifiée"
+    elif result["score_fonctionnel"] >= 35:
+        result["label_fonctionnel"] = "Communauté intermédiaire"
+    else:
+        result["label_fonctionnel"] = "Communauté banalisée"
+ 
+    return result
+ 
+ 
+def compute_nocturnal_analysis(df_input):
+    """
+    Analyse la richesse et la régularité des espèces nocturnes
+    détectées dans les données BirdNET.
+ 
+    Returns
+    -------
+    dict avec :
+        - df_nocturnes     : DataFrame des espèces nocturnes détectées
+        - n_species        : nombre d'espèces nocturnes
+        - valeur_totale    : somme des valeurs indicatrices
+        - n_patrimoniales  : espèces nocturnes à valeur >= 4
+        - score_nocturne   : score 0-100
+        - label_nocturne   : texte de lecture
+        - heures_detectees : liste des heures de détection
+    """
+    result = {
+        "df_nocturnes":     pd.DataFrame(),
+        "n_species":        0,
+        "valeur_totale":    0,
+        "n_patrimoniales":  0,
+        "score_nocturne":   0.0,
+        "label_nocturne":   "Non calculable",
+        "heures_detectees": []
+    }
+ 
+    if df_input.empty:
+        return result
+ 
+    df_temp = df_input.copy()
+    if "Heure" not in df_temp.columns:
+        df_temp["Heure"] = pd.to_datetime(df_temp["startdate"]).dt.hour
+ 
+    # 1. Filtrage des espèces nocturnes
+    rows = []
+    for espece, meta in ESPECES_NOCTURNES_INDICATRICES.items():
+        df_esp = df_temp[df_temp["vernacular_name"] == espece]
+        if df_esp.empty:
+            continue
+ 
+        n_detections = int(df_esp["detection_count"].sum())
+        df_esp = df_esp.copy()
+        df_esp["date_only"] = pd.to_datetime(df_esp["startdate"]).dt.date
+        n_jours = df_esp["date_only"].nunique()
+ 
+        rows.append({
+            "espece":     espece,
+            "habitat":    meta["habitat"],
+            "valeur":     meta["valeur"],
+            "detections": n_detections,
+            "jours":      n_jours
+        })
+ 
+    if not rows:
+        result["label_nocturne"] = "Aucune espèce nocturne détectée"
+        return result
+ 
+    df_nocturnes = (
+        pd.DataFrame(rows)
+        .sort_values(["valeur", "detections"], ascending=[False, False])
+        .reset_index(drop=True)
+    )
+ 
+    result["df_nocturnes"]    = df_nocturnes
+    result["n_species"]       = len(df_nocturnes)
+    result["valeur_totale"]   = int(df_nocturnes["valeur"].sum())
+    result["n_patrimoniales"] = int((df_nocturnes["valeur"] >= 4).sum())
+ 
+    # 2. Heures de détection
+    df_noc_all = df_temp[
+        df_temp["vernacular_name"].isin(ESPECES_NOCTURNES_INDICATRICES.keys())
+    ]
+    if not df_noc_all.empty:
+        result["heures_detectees"] = sorted(df_noc_all["Heure"].unique().tolist())
+ 
+    # 3. Score nocturne
+    score_base = min(result["valeur_totale"] / 15.0 * 100, 100.0)
+    bonus      = min(result["n_patrimoniales"] * 5, 20)
+    result["score_nocturne"] = float(min(score_base + bonus, 100.0))
+ 
+    # 4. Label
+    if result["score_nocturne"] >= 70:
+        result["label_nocturne"] = "Excellent — milieu nocturne riche et peu perturbé"
+    elif result["score_nocturne"] >= 40:
+        result["label_nocturne"] = "Bon — présence significative d'espèces nocturnes"
+    elif result["score_nocturne"] >= 15:
+        result["label_nocturne"] = "Modéré — quelques espèces nocturnes détectées"
+    else:
+        result["label_nocturne"] = "Faible — peu d'espèces nocturnes détectées"
+ 
+    return result
 
 # 8. CALCULS PRINCIPAUX
 if not df.empty:
@@ -3779,7 +4316,7 @@ if not df.empty:
     color_map = {esp: PALETTE_ESPECES[i] for i, esp in enumerate(top9)}
     color_map["Autres"] = C_GRIS
 
-        # ---------------------------------------------------------
+    # ---------------------------------------------------------
     # Préparation des catégories graphiques
     # ---------------------------------------------------------
     # On conserve les 9 espèces les plus abondantes,
@@ -4235,7 +4772,7 @@ if not df.empty:
             else:
                 st.warning("⚠️ Pas assez de données pour construire la comparaison inter-sites.")
 
-        # ---------------- TAB STATS ----------------
+    # ---------------- TAB STATS ----------------
     with tab_stats:
         st.subheader("📦 Distribution Hebdomadaire de la Diversité (Shannon)")
 
@@ -4497,7 +5034,7 @@ Pour les oiseaux diurnes, si ce chiffre dépasse 15 à 20%, cela traduit souvent
 
             conf = metric_config[metric_choice]
 
-                        # ---------------------------------------------------------
+            # ---------------------------------------------------------
             # Histogramme principal avec correction axe X
             # ---------------------------------------------------------
 
@@ -5416,7 +5953,6 @@ Pour les oiseaux diurnes, si ce chiffre dépasse 15 à 20%, cela traduit souvent
                 else:
                     st.info("Aucune variation marquée n'est détectée sur les espèces les plus fréquentes.")
 
-    # ---------------- TAB DIAGNOSTIC ----------------
     with tab_diagnostic:
         st.subheader("🧠 Diagnostic écologique")
 
@@ -5427,6 +5963,11 @@ Pour les oiseaux diurnes, si ce chiffre dépasse 15 à 20%, cela traduit souvent
         d50, df_rank, prop_top_d50 = compute_d50(df)
         bc_median, bc_std, n_semaines_bc, df_bc_weekly = compute_bray_curtis_stability(df)
         e1c = compute_e1c_v2(bootstrap_results, adi_median, d50, bc_median)
+
+        # NOUVEAU : calcul pression anthropique matinale
+        # Doit être fait ici pour être disponible dans les
+        # sections suivantes (commentaires + recommandations)
+        pressure = compute_anthropic_pressure_auroral(df)
 
         # ---------------------------------------------------------
         # 2. Bandeau synthétique
@@ -5781,6 +6322,529 @@ Pour les oiseaux diurnes, si ce chiffre dépasse 15 à 20%, cela traduit souvent
         st.markdown("---")
 
         # ---------------------------------------------------------
+        # 7bis. NOUVEAU — Pression anthropique matinale
+        # Basé sur : Somervuo et al. (2025) Nature Ecology & Evolution
+        #            Pérez-Granados (2023) Ibis
+        #            Fradet et al. (2025) J. Acoust. Soc. Am.
+        # ---------------------------------------------------------
+        st.markdown("### 🏙️ Pression anthropique sur le chorus de l'aube")
+
+        st.caption(
+            "Le bruit anthropique (trafic, activité humaine) survient précisément "
+            "tôt le matin, en conflit direct avec le chorus de l'aube. "
+            "Cet indicateur estime cette pression via deux proxies calculés "
+            "depuis vos données BirdNET : le score de confiance moyen et la richesse "
+            "spécifique sur la fenêtre 5h-8h comparés à la journée (9h-18h). "
+            "Un score de confiance plus faible le matin suggère un masquage acoustique."
+        )
+
+        if pressure["n_auroral"] < 10 or pressure["n_diurne"] < 10:
+            st.warning(
+                "⚠️ Pas assez de données sur l'une des deux fenêtres temporelles "
+                "pour estimer la pression anthropique matinale."
+            )
+        else:
+            col_p1, col_p2, col_p3 = st.columns(3)
+
+            col_p1.metric(
+                "Niveau de pression estimé",
+                pressure["pressure_level"],
+                help=(
+                    "Faible = pas de signal de masquage détecté. "
+                    "Modérée = un proxy montre un signal. "
+                    "Élevée = les deux proxies convergent."
+                )
+            )
+
+            if pressure["richesse_ratio"] is not None:
+                col_p2.metric(
+                    "Richesse auroral / diurne",
+                    f"{pressure['richesse_ratio']:.2f}",
+                    help=(
+                        f"{pressure['richesse_auroral']} espèces sur 5h-8h "
+                        f"vs {pressure['richesse_diurne']} espèces sur 9h-18h. "
+                        "Un ratio < 0.65 peut signaler une suppression du chorus."
+                    )
+                )
+            else:
+                col_p2.metric("Richesse auroral / diurne", "n.c.")
+
+            if pressure["has_confidence_data"] and pressure["confidence_ratio"] is not None:
+                col_p3.metric(
+                    "Confiance BirdNET auroral / diurne",
+                    f"{pressure['confidence_ratio']:.2f}",
+                    help=(
+                        f"Score moyen 5h-8h : {pressure['confidence_auroral']:.2f} "
+                        f"vs 9h-18h : {pressure['confidence_diurne']:.2f}. "
+                        "Un ratio < 0.85 suggère un masquage par le bruit."
+                    )
+                )
+            else:
+                col_p3.metric(
+                    "Confiance BirdNET auroral / diurne",
+                    "n.c.",
+                    help="Colonne 'Birdnet_confidence_index' absente des données."
+                )
+
+            if pressure["pressure_level"] == "Élevée":
+                st.error(
+                    "🔴 **Pression anthropique matinale élevée** — "
+                    "les deux signaux convergent : le chorus de l'aube est probablement "
+                    "perturbé ou masqué par du bruit d'origine humaine entre 5h et 8h. "
+                    "Cela peut sous-estimer l'ADI auroral et la richesse réelle du site. "
+                    "Une validation terrain est fortement recommandée."
+                )
+            elif pressure["pressure_level"] == "Modérée":
+                st.warning(
+                    "🟠 **Pression anthropique matinale modérée** — "
+                    "un des indicateurs montre un signal de perturbation. "
+                    "Le chorus de l'aube est potentiellement affecté. "
+                    "Croiser avec une observation directe pour confirmer."
+                )
+            else:
+                st.success(
+                    "🟢 **Pression anthropique matinale faible** — "
+                    "aucun signal de masquage acoustique détecté sur la fenêtre 5h-8h."
+                )
+
+            with st.expander("📊 Voir les valeurs détaillées"):
+                detail_data = {
+                    "Fenêtre": ["Auroral (5h-8h)", "Diurne (9h-18h)"],
+                    "Nb détections": [
+                        pressure["n_auroral"],
+                        pressure["n_diurne"]
+                    ],
+                    "Richesse spécifique": [
+                        pressure["richesse_auroral"],
+                        pressure["richesse_diurne"]
+                    ],
+                }
+                if pressure["has_confidence_data"]:
+                    detail_data["Confiance BirdNET moyenne"] = [
+                        f"{pressure['confidence_auroral']:.3f}" if pressure["confidence_auroral"] else "n.c.",
+                        f"{pressure['confidence_diurne']:.3f}" if pressure["confidence_diurne"] else "n.c."
+                    ]
+
+                st.table(pd.DataFrame(detail_data))
+
+                st.caption(
+                    "**Sources méthodologiques :** "
+                    "Somervuo et al. (2025) *Nature Ecology & Evolution* — "
+                    "conflits entre bruit anthropique et chorus de l'aube. "
+                    "Pérez-Granados (2023) *Ibis* — chute des scores BirdNET "
+                    "en présence de bruit de fond. "
+                    "Fradet et al. (2025) *J. Acoust. Soc. Am.* — "
+                    "masquage acoustique et faux négatifs BirdNET."
+                )
+
+        st.markdown("---")
+
+        st.markdown("---")
+        st.markdown("### 🏷️ Composition fonctionnelle de la communauté")
+ 
+        st.caption(
+            "Les oiseaux peuvent être classés selon leur dépendance à l'habitat. "
+            "Un site écologiquement riche accueille une forte proportion de "
+            "**spécialistes** (forestiers, agricoles) et d'**espèces patrimoniales** "
+            "(rapaces, migrateurs). Une dominance de généralistes ubiquistes "
+            "traduit souvent une banalisation du milieu. "
+            "Source : PECBMS — Pan-European Common Bird Monitoring Scheme."
+        )
+ 
+        guild_results = compute_guild_analysis(df)
+ 
+        if guild_results["n_total"] == 0:
+            st.warning("⚠️ Aucune donnée disponible pour l'analyse des guildes.")
+        else:
+            # Bandeau métriques
+            cg1, cg2, cg3, cg4 = st.columns(4)
+            cg1.metric(
+                "Score de fonctionnalité",
+                f"{guild_results['score_fonctionnel']:.0f} / 100",
+                help="Valorise les spécialistes et les espèces patrimoniales."
+            )
+            cg2.metric(
+                "Espèces classifiées",
+                f"{guild_results['n_identified']} / {guild_results['n_total']}",
+                help="Espèces reconnues dans le référentiel de guildes."
+            )
+            cg3.metric(
+                "Indice de spécialisation",
+                f"{guild_results['specialisation']:.2f}",
+                help="Ratio spécialistes+patrimoniaux / généralistes. > 1.5 = bon signal."
+            )
+            cg4.metric("Lecture", guild_results["label_fonctionnel"])
+ 
+            # Bannière
+            if guild_results["score_fonctionnel"] >= 65:
+                st.success(
+                    "🟢 **Communauté fonctionnellement riche** — "
+                    "la présence de spécialistes et d'espèces patrimoniales "
+                    "indique un milieu de qualité avec des habitats diversifiés."
+                )
+            elif guild_results["score_fonctionnel"] >= 35:
+                st.warning(
+                    "🟠 **Communauté intermédiaire** — "
+                    "un mélange de spécialistes et de généralistes. "
+                    "Des marges de progression existent sur la diversité fonctionnelle."
+                )
+            else:
+                st.error(
+                    "🔴 **Communauté banalisée** — "
+                    "les généralistes dominent. Cela peut traduire une fragmentation "
+                    "des habitats ou une pression anthropique marquée."
+                )
+ 
+            st.markdown("---")
+ 
+            # Couleurs et labels des guildes
+            GUILDE_COLORS = {
+                "FORESTIER":   C_VERT_SOMBRE,
+                "AGRICOLE":    C_JAUNE,
+                "PATRIMONIAL": C_ROUGE,
+                "GENERALISTE": C_GRIS,
+                "INCONNU":     C_BLEU_CLAIR
+            }
+            GUILDE_LABELS = {
+                "FORESTIER":   "Spécialistes forestiers",
+                "AGRICOLE":    "Spécialistes agricoles",
+                "PATRIMONIAL": "Espèces patrimoniales",
+                "GENERALISTE": "Généralistes",
+                "INCONNU":     "Non classifiées"
+            }
+ 
+            col_g1, col_g2 = st.columns([1, 1.5])
+ 
+            with col_g1:
+                st.markdown("#### Répartition par guilde")
+ 
+                df_guildes_plot = (
+                    guild_results["df_guildes"]
+                    .groupby("guilde").size()
+                    .reset_index(name="nb_especes")
+                )
+                df_guildes_plot["label"] = df_guildes_plot["guilde"].map(GUILDE_LABELS)
+ 
+                fig_guildes = px.pie(
+                    df_guildes_plot,
+                    values="nb_especes",
+                    names="label",
+                    hole=0.55,
+                    color="label",
+                    color_discrete_map={
+                        GUILDE_LABELS[g]: GUILDE_COLORS[g]
+                        for g in GUILDE_COLORS
+                    },
+                    template="none"
+                )
+                fig_guildes.update_layout(
+                    paper_bgcolor=C_FOND,
+                    showlegend=True,
+                    legend=dict(
+                        orientation="v",
+                        yanchor="middle", y=0.5,
+                        xanchor="left",   x=1.02,
+                        font=dict(size=11)
+                    ),
+                    margin=dict(t=10, b=10, l=10, r=150),
+                    height=320
+                )
+                st.plotly_chart(fig_guildes, use_container_width=True)
+ 
+            with col_g2:
+                st.markdown("#### Spécialistes et espèces patrimoniales")
+ 
+                df_highlight = (
+                    guild_results["df_guildes"][
+                        guild_results["df_guildes"]["guilde"].isin(
+                            ["PATRIMONIAL", "FORESTIER", "AGRICOLE"]
+                        )
+                    ]
+                    .sort_values(["guilde", "detections"], ascending=[True, False])
+                    .head(15)
+                )
+ 
+                if df_highlight.empty:
+                    st.info(
+                        "Aucune espèce spécialiste ou patrimoniale "
+                        "identifiée dans le référentiel pour ce jeu de données."
+                    )
+                else:
+                    fig_highlight = px.bar(
+                        df_highlight,
+                        x="detections",
+                        y="vernacular_name",
+                        color="guilde",
+                        orientation="h",
+                        template="none",
+                        color_discrete_map={
+                            "PATRIMONIAL": C_ROUGE,
+                            "FORESTIER":   C_VERT_SOMBRE,
+                            "AGRICOLE":    C_JAUNE
+                        },
+                        labels={
+                            "detections":      "Détections",
+                            "vernacular_name": "",
+                            "guilde":          "Guilde"
+                        }
+                    )
+                    fig_highlight.update_layout(
+                        paper_bgcolor=C_FOND,
+                        plot_bgcolor=C_FOND,
+                        height=380,
+                        margin=dict(l=160, r=20, t=10, b=40),
+                        legend=dict(
+                            orientation="h",
+                            yanchor="bottom", y=1.02,
+                            xanchor="center", x=0.5,
+                            title=None
+                        )
+                    )
+                    fig_highlight.update_yaxes(automargin=True)
+                    st.plotly_chart(fig_highlight, use_container_width=True)
+ 
+            with st.expander("ℹ️ Comment sont définies les guildes ?"):
+                st.markdown("""
+Les 4 guildes sont adaptées des classifications officielles européennes :
+ 
+| Guilde | Définition | Valeur écologique |
+|---|---|---|
+| 🌲 Spécialistes forestiers | Dépendants de forêts matures, lisières boisées | Forte |
+| 🌾 Spécialistes agricoles | Prairies, cultures, bocage, milieux ouverts | Forte |
+| 🐦 Généralistes | Ubiquistes, adaptés aux milieux anthropisés | Modérée |
+| ⭐ Patrimoniales | Rapaces, migrateurs longue distance, espèces sensibles | Très forte |
+ 
+**Indice de spécialisation :** ratio (spécialistes + patrimoniaux) / généralistes.
+- > 2.0 = communauté très riche en spécialistes
+- 1.0 à 2.0 = équilibre correct
+- < 1.0 = dominance des généralistes, signal de banalisation
+ 
+**Score de fonctionnalité :**
+Forestier/Agricole × 2 pts + Patrimonial × 4 pts + Généraliste × 0,5 pt,
+normalisé sur une référence de 40 points.
+ 
+**Sources :** PECBMS (2025). EU Biodiversity Strategy Dashboard.
+Canterbury et al. (2000) *Conservation Biology*.
+                """)
+ 
+ 
+# ----- SECTION 7quater : ESPÈCES NOCTURNES -----
+ 
+        st.markdown("---")
+        st.markdown("### 🦉 Espèces nocturnes — indicateurs de qualité du milieu")
+ 
+        st.caption(
+            "La présence d'espèces actives la nuit — rapaces nocturnes, engoulevent, "
+            "rousserolles nocturnes — est un signal fort de qualité écologique. "
+            "Elle indique une faible pollution lumineuse, des habitats refuges "
+            "disponibles et des ressources alimentaires suffisantes. "
+            "BirdNET est particulièrement performant pour ces espèces dont "
+            "les vocalisations sont très caractéristiques."
+        )
+ 
+        nocturnal_results = compute_nocturnal_analysis(df)
+ 
+        if nocturnal_results["n_species"] == 0:
+            st.info(
+                "ℹ️ Aucune espèce nocturne indicatrice détectée. "
+                "Cela peut s'expliquer par des enregistrements limités aux heures "
+                "diurnes, une absence réelle de ces espèces, ou un seuil BirdNET "
+                "trop élevé pour des vocalisations nocturnes plus rares."
+            )
+        else:
+            # Bandeau métriques
+            cn1, cn2, cn3, cn4 = st.columns(4)
+            cn1.metric(
+                "Score nocturne",
+                f"{nocturnal_results['score_nocturne']:.0f} / 100"
+            )
+            cn2.metric(
+                "Espèces nocturnes",
+                nocturnal_results["n_species"]
+            )
+            cn3.metric(
+                "Espèces patrimoniales (valeur ≥ 4)",
+                nocturnal_results["n_patrimoniales"],
+                help="Hibou des marais, Engoulevent, Chouette de Tengmalm..."
+            )
+            cn4.metric(
+                "Valeur indicatrice totale",
+                nocturnal_results["valeur_totale"]
+            )
+ 
+            # Bannière
+            score_noc = nocturnal_results["score_nocturne"]
+            if score_noc >= 70:
+                st.success(
+                    f"🟢 **{nocturnal_results['label_nocturne']}** — "
+                    "ce site accueille une communauté nocturne significative, "
+                    "signe de faible pression lumineuse et d'habitats refuges préservés."
+                )
+            elif score_noc >= 40:
+                st.success(
+                    f"🟢 **{nocturnal_results['label_nocturne']}** — "
+                    "quelques espèces nocturnes sont bien établies sur ce site."
+                )
+            elif score_noc >= 15:
+                st.warning(
+                    f"🟠 **{nocturnal_results['label_nocturne']}** — "
+                    "présence limitée. Vérifier la couverture nocturne des enregistreurs."
+                )
+            else:
+                st.error(
+                    f"🔴 **{nocturnal_results['label_nocturne']}** — "
+                    "signal faible. Manque potentiel d'habitats refuges nocturnes "
+                    "ou couverture insuffisante des enregistreurs la nuit."
+                )
+ 
+            st.markdown("---")
+ 
+            col_n1, col_n2 = st.columns([1.5, 1])
+ 
+            VALEUR_LABELS = {2: "⭐⭐", 3: "⭐⭐⭐", 4: "⭐⭐⭐⭐"}
+ 
+            with col_n1:
+                st.markdown("#### Espèces nocturnes détectées")
+ 
+                df_noc_display = nocturnal_results["df_nocturnes"].copy()
+ 
+                fig_noc = px.bar(
+                    df_noc_display,
+                    x="detections",
+                    y="espece",
+                    color="valeur",
+                    orientation="h",
+                    template="none",
+                    color_continuous_scale=[
+                        [0.0, C_JAUNE],
+                        [0.5, C_BLEU],
+                        [1.0, C_ROUGE]
+                    ],
+                    labels={
+                        "detections": "Détections",
+                        "espece":     "",
+                        "valeur":     "Valeur indicatrice"
+                    },
+                    text="espece"
+                )
+                fig_noc.update_traces(
+                    textposition="inside",
+                    textfont=dict(color="white", size=12),
+                    marker_line_color=C_FOND,
+                    marker_line_width=1
+                )
+                fig_noc.update_layout(
+                    paper_bgcolor=C_FOND,
+                    plot_bgcolor=C_FOND,
+                    height=max(280, len(df_noc_display) * 48),
+                    margin=dict(l=20, r=20, t=10, b=40),
+                    showlegend=False,
+                    coloraxis_showscale=True,
+                    coloraxis_colorbar=dict(
+                        title="Valeur",
+                        thickness=12,
+                        len=0.6
+                    ),
+                    yaxis=dict(showticklabels=False)
+                )
+                st.plotly_chart(fig_noc, use_container_width=True)
+ 
+            with col_n2:
+                st.markdown("#### Détail des espèces")
+                for _, row in df_noc_display.iterrows():
+                    valeur_str = VALEUR_LABELS.get(row["valeur"], "⭐")
+                    st.markdown(
+                        f"**{row['espece']}** {valeur_str}  \n"
+                        f"🏡 {row['habitat']}  \n"
+                        f"📊 {int(row['detections'])} détection(s) "
+                        f"sur {int(row['jours'])} jour(s)"
+                    )
+                    st.markdown("---")
+ 
+            # Profil horaire des détections nocturnes
+            if nocturnal_results["heures_detectees"]:
+                df_noc_heures = df[
+                    df["vernacular_name"].isin(
+                        ESPECES_NOCTURNES_INDICATRICES.keys()
+                    )
+                ].copy()
+ 
+                if not df_noc_heures.empty:
+                    st.markdown("#### Profil horaire des détections nocturnes")
+ 
+                    df_heure_count = (
+                        df_noc_heures.groupby("Heure")["detection_count"]
+                        .sum().reset_index()
+                    )
+                    all_hours = pd.DataFrame({"Heure": range(24)})
+                    df_heure_count = (
+                        all_hours.merge(df_heure_count, on="Heure", how="left")
+                        .fillna(0)
+                    )
+ 
+                    fig_heure_noc = px.bar(
+                        df_heure_count,
+                        x="Heure",
+                        y="detection_count",
+                        template="none",
+                        labels={
+                            "Heure":           "Heure de la journée",
+                            "detection_count": "Détections"
+                        }
+                    )
+                    fig_heure_noc.add_vrect(
+                        x0=21, x1=23.5,
+                        fillcolor=C_VIOLET, opacity=0.1,
+                        line_width=0,
+                        annotation_text="Nuit",
+                        annotation_position="top left"
+                    )
+                    fig_heure_noc.add_vrect(
+                        x0=-0.5, x1=5,
+                        fillcolor=C_VIOLET, opacity=0.1,
+                        line_width=0
+                    )
+                    fig_heure_noc.update_traces(
+                        marker_color=C_MAUVE,
+                        marker_line_color=C_FOND
+                    )
+                    fig_heure_noc.update_layout(
+                        paper_bgcolor=C_FOND,
+                        plot_bgcolor=C_FOND,
+                        height=300,
+                        xaxis=dict(tickmode="linear", dtick=2)
+                    )
+                    st.plotly_chart(fig_heure_noc, use_container_width=True)
+ 
+                    st.caption(
+                        "La zone violette indique les heures de nuit (21h-5h). "
+                        "Des détections nocturnes d'espèces naturellement nocturnes "
+                        "sont normales et positives. Une activité nocturne "
+                        "d'espèces normalement diurnes signalerait une perturbation."
+                    )
+ 
+            with st.expander("ℹ️ Comment est calculé le score nocturne ?"):
+                st.markdown(f"""
+Chaque espèce nocturne détectée se voit attribuer une **valeur indicatrice** :
+ 
+| Valeur | Signification |
+|---|---|
+| ⭐⭐ (2) | Espèce nocturne commune — signal positif modéré |
+| ⭐⭐⭐ (3) | Espèce nocturne sensible — signal positif fort |
+| ⭐⭐⭐⭐ (4) | Espèce nocturne patrimoniale — signal exceptionnel |
+ 
+Le **score nocturne** est la somme des valeurs indicatrices normalisée sur
+une référence de 15 points, avec un bonus de +5 points par espèce
+patrimoniale (plafonné à +20).
+ 
+**Espèces suivies ({len(ESPECES_NOCTURNES_INDICATRICES)}) :**
+{", ".join(ESPECES_NOCTURNES_INDICATRICES.keys())}
+ 
+**Note :** BirdNET est particulièrement fiable pour les rapaces nocturnes,
+dont les vocalisations sont très caractéristiques *(Pérez-Granados, 2023 — Ibis)*.
+                """)
+
+        # ---------------------------------------------------------
         # 8. Lecture écologique synthétique
         # ---------------------------------------------------------
         st.markdown("### 🧾 Ce que nous disent ces données")
@@ -5878,6 +6942,18 @@ Pour les oiseaux diurnes, si ce chiffre dépasse 15 à 20%, cela traduit souvent
                     "vérifiez s'il y a eu des perturbations ponctuelles sur cette période."
                 )
 
+        # NOUVEAU — Pression anthropique dans la lecture synthétique
+        if pressure["pressure_level"] == "Élevée":
+            commentaires.append(
+                "Une pression anthropique matinale élevée a été détectée — "
+                "les indicateurs du chorus de l'aube sont à interpréter avec prudence."
+            )
+        elif pressure["pressure_level"] == "Modérée":
+            commentaires.append(
+                "Un signal modéré de pression anthropique matinale est présent — "
+                "une validation terrain permettrait de confirmer l'état réel du chorus."
+            )
+
         st.write(" ".join(commentaires))
 
         st.markdown("---")
@@ -5904,6 +6980,11 @@ Pour les oiseaux diurnes, si ce chiffre dépasse 15 à 20%, cela traduit souvent
             forces.append(f"Activité sonore bien partagée entre les espèces (D50 = {d50}).")
         if bc_median >= 0.70 and n_semaines_bc > 0:
             forces.append("Communauté stable dans le temps.")
+        if pressure["pressure_level"] == "Faible":
+            forces.append(
+                "Pression anthropique matinale faible — "
+                "le chorus de l'aube n'est pas masqué."
+            )
 
         # Vigilances
         if e1c["score_e1c"] < E1C_SEUILS["intermediaire"]:
@@ -5927,6 +7008,16 @@ Pour les oiseaux diurnes, si ce chiffre dépasse 15 à 20%, cela traduit souvent
             )
         if e1c["score_richesse"] < 40:
             vigilances.append("Peu d'espèces différentes détectées sur ce site.")
+        if pressure["pressure_level"] == "Élevée":
+            vigilances.append(
+                "Pression anthropique matinale élevée — les indicateurs du chorus "
+                "de l'aube peuvent être sous-estimés."
+            )
+        elif pressure["pressure_level"] == "Modérée":
+            vigilances.append(
+                "Signal modéré de pression anthropique matinale — "
+                "à surveiller sur les prochaines sessions."
+            )
 
         # Recommandations
         if e1c["score_adi"] < 60:
@@ -5945,6 +7036,36 @@ Pour les oiseaux diurnes, si ce chiffre dépasse 15 à 20%, cela traduit souvent
                 "(corridors, lisières, zones non traitées) pour favoriser l'arrivée "
                 "de nouvelles espèces."
             )
+
+        # NOUVEAU — Validation terrain conditionnelle
+        # Conforme aux recommandations de
+        # Nature Ecology & Evolution (2025) et Sethi et al. (2023)
+        needs_validation = (
+            e1c["score_e1c"] < E1C_SEUILS["bon"] or
+            n_jours_chorus < 5 or
+            pressure["pressure_level"] in ["Élevée", "Modérée"]
+        )
+
+        if needs_validation:
+            reasons = []
+            if e1c["score_e1c"] < E1C_SEUILS["bon"]:
+                reasons.append("score E1C inférieur au seuil « Bon »")
+            if n_jours_chorus < 5:
+                reasons.append(
+                    f"chorus de l'aube analysé sur seulement {n_jours_chorus} matin(s)"
+                )
+            if pressure["pressure_level"] in ["Élevée", "Modérée"]:
+                reasons.append("signal de pression anthropique matinale détecté")
+
+            recommandations.append(
+                "⚠️ **Validation terrain recommandée** ("
+                + ", ".join(reasons)
+                + "). Les indices acoustiques automatisés atteignent leurs limites "
+                "dans ce contexte — une confirmation par observation directe "
+                "(point d'écoute, IPA) est conseillée pour fiabiliser le diagnostic "
+                "*(Nature Ecology & Evolution, 2025 ; Sethi et al., 2023)*."
+            )
+
         if e1c["score_e1c"] < E1C_SEUILS["excellent"]:
             recommandations.append(
                 "Poursuivre le suivi sur plusieurs saisons pour confirmer les tendances "
@@ -5977,10 +7098,12 @@ Pour les oiseaux diurnes, si ce chiffre dépasse 15 à 20%, cela traduit souvent
                 st.write(f"• {item}")
 
         # ---------------------------------------------------------
-        # 10. Note méthodologique
+        # 10. NOUVEAU — Note méthodologique enrichie
         # ---------------------------------------------------------
-        with st.expander("ℹ️ Comment est calculée la note E1C ?"):
+        with st.expander("ℹ️ Comment est calculée la note E1C ? Méthode et limites"):
             st.markdown("""
+### Composition de l'indice E1C
+
 La note E1C combine 4 mesures, chacune évaluée par rapport aux sites de référence du réseau :
 
 | Mesure | Ce qu'elle évalue | Poids |
@@ -5998,9 +7121,71 @@ Castries, Boston, Espeyran, Etrechy, LaPeyruche, Lavallière, Purcari, Villevert
 Le concert du matin a le plus grand poids car c'est le premier indicateur
 à se dégrader quand un milieu est perturbé — avant même que le nombre
 total d'espèces ne diminue.
+
+---
+
+### Contexte scientifique
+
+Le monitoring acoustique passif est en plein essor comme outil de suivi de la biodiversité,
+porté par les avancées en capteurs, stockage et intelligence artificielle.
+Plusieurs résultats récents éclairent directement la lecture des indices présentés ici.
+
+**Sur le chorus de l'aube :**
+Les soundscapes biologiques présentent des rythmes hautement prévisibles, structurés
+par la latitude, la saisonnalité et l'heure de la journée. En revanche, les soundscapes
+anthropiques sont moins prévisibles et **entrent en conflit direct avec les rythmes biologiques** :
+le bruit des véhicules tôt le matin coïncide précisément avec le chorus de l'aube.
+Ce conflit peut masquer la communication animale et exercer une pression sélective
+sur les populations *(Somervuo et al., 2025 — Nature Ecology & Evolution)*.
+
+**Sur les limites des indices acoustiques automatisés :**
+Une analyse de plus de 8 000 enregistrements collectés simultanément avec des comptages
+manuels d'oiseaux dans 4 écosystèmes tropicaux et tempérés différents **n'a identifié aucun
+indice de diversité acoustique commun aux soundscapes biodiversifiées**, ni par méthodes
+univariées ni par apprentissage automatique *(Sethi et al., 2023 — Nature Ecology & Evolution)*.
+Cela signifie que les indices comme l'E1C sont plus fiables lorsqu'ils sont **calibrés
+sur un corpus de référence local** — ce qui est le cas ici — que lorsqu'ils sont
+appliqués de façon universelle.
+
+**Sur la fiabilité de BirdNET :**
+Les scores de confiance BirdNET tendent à baisser en présence de bruit de fond intense,
+produisant des faux négatifs sur les vocalisations plus faibles *(Pérez-Granados, 2023 — Ibis)*.
+Le seuil de 0.8 appliqué par défaut dans ce dashboard est conservateur et favorise
+la précision sur le rappel.
+
+---
+
+### Limites à connaître
+
+- **L'expert humain reste le gold standard** : le monitoring acoustique automatisé
+  est un outil complémentaire, pas un substitut à l'observation directe
+  *(Nature Ecology & Evolution, 2025)*.
+- **Biais taxonomique** : les données BirdNET couvrent principalement les oiseaux.
+  44% des datasets acoustiques validés dans la littérature sont aviaires ;
+  les fréquences non-audibles par l'humain et les écosystèmes souterrains
+  restent très peu couverts *(Darras et al., 2025 — Global Ecology & Biogeography)*.
+- **Saisonnalité** : les scores doivent être interprétés en tenant compte
+  de la période d'enregistrement. Un suivi printanier (pic de chant) n'est
+  pas directement comparable à un suivi hivernal.
+- **Pression anthropique matinale** : un bruit de fond élevé entre 5h et 8h
+  peut masquer des vocalisations et sous-estimer le chorus de l'aube.
+  L'indicateur dédié dans cet onglet permet de détecter ce biais.
+- **Validation terrain recommandée** quand le score E1C est inférieur à 52
+  ou quand la pression anthropique matinale est modérée ou élevée.
+
+---
+
+### Références
+
+- Somervuo et al. (2025). *Nature Ecology & Evolution* — soundscapes globaux et conflits anthropiques
+- Sethi et al. (2023). *Nature Ecology & Evolution* 7, 1373–1378 — limites des indices acoustiques
+- Pérez-Granados (2023). *Ibis* — performances et limites de BirdNET
+- Darras et al. (2025). *Global Ecology & Biogeography* 34, 5 — gaps dans les datasets acoustiques
+- Rasmussen et al. (2024). *Science* 385, 138–140 — IA et bioacoustique
+- Fradet et al. (2025). *J. Acoust. Soc. Am.* — masquage acoustique et scores BirdNET
             """)
 
-        # ---------------- TAB UICN ----------------
+    # ---------------- TAB UICN ----------------
     with tab_uicn:
         st.subheader("🔴 Croisement avec la Liste Rouge UICN")
 
