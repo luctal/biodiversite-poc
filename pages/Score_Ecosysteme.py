@@ -31,6 +31,7 @@ from core.score_v3 import (
     compute_global_score_sp,
     compute_global_score_sc,
     compute_global_score_v3,
+    compute_global_score_v3_weighted,
     get_effective_weights,
     WEIGHTS_V3,
 )
@@ -153,12 +154,15 @@ def save_file(f, suffix):
 # GRAPHIQUES
 # ============================================================================
 
-def gauge(value: float, title: str, color: str | None = None) -> go.Figure:
-    c = color or score_color(value)
+def gauge(value: float | None, title: str, color: str | None = None) -> go.Figure:
+    safe_value = float(value) if value is not None else 0.0
+    c = color or score_color(safe_value)
+    # Nettoyage du titre : supprimer caractères qui peuvent poser problème à Plotly JS
+    safe_title = str(title).replace("'", "").replace('"', "").upper()
     fig = go.Figure(go.Indicator(
-        mode="gauge+number", value=value,
+        mode="gauge+number", value=safe_value,
         number={"suffix": " /100", "font": {"size": 30, "color": c, "family": "Georgia, serif"}},
-        title={"text": title.upper(), "font": {"size": 10, "color": C_NAVY, "family": "Calibri"}},
+        title={"text": safe_title, "font": {"size": 10, "color": C_NAVY, "family": "Calibri"}},
         gauge={
             "axis": {"range": [0, 100], "tickcolor": C_GREY, "tickfont": {"size": 9}},
             "bar": {"color": c, "thickness": 0.22},
@@ -167,7 +171,7 @@ def gauge(value: float, title: str, color: str | None = None) -> go.Figure:
                 {"range": [0, 45], "color": "#f5e6e8"}, {"range": [45, 60], "color": "#faf4dc"},
                 {"range": [60, 75], "color": "#e8f0e2"}, {"range": [75, 100], "color": "#d4e8cc"},
             ],
-            "threshold": {"line": {"color": c, "width": 2}, "value": value},
+            "threshold": {"line": {"color": c, "width": 2}, "value": safe_value},
         },
     ))
     fig.update_layout(height=195, margin=dict(t=40, b=5, l=15, r=15), **PLOTLY_BASE)
@@ -409,9 +413,20 @@ def cached_gbif_df(path):
 # ============================================================================
 
 def analyze_gbif(df):
-    if df is None or df.empty or "title" not in df.columns:
-        return {"usable": False, "message": "Colonne 'title' manquante."}
+    if df is None or df.empty:
+        return {"usable": False, "message": "Fichier GBIF vide."}
+
+    SPECIES_CANDIDATES = ["title", "species", "scientificName", "scientific_name",
+                          "name", "taxon", "vernacularName", "label"]
+    species_col = next((c for c in SPECIES_CANDIDATES if c in df.columns), None)
+    if species_col is None:
+        return {"usable": False,
+                "message": f"Aucune colonne espece trouvee. Colonnes presentes : {list(df.columns)}"}
+
     data = df.copy()
+    if species_col != "title":
+        data = data.rename(columns={species_col: "title"})
+
     data["title"] = data["title"].astype(str).str.strip()
     data = data[data["title"] != ""]
     if data.empty:
@@ -508,6 +523,8 @@ with st.sidebar:
     else:
         st.error("Les ponderations ne peuvent pas toutes etre a 0.")
         custom_weights = WEIGHTS_V3
+    # Stocker les poids courants — lus après la sidebar pour le recalcul V3
+    st.session_state["custom_weights"] = custom_weights
 
     st.divider()
 
@@ -615,7 +632,12 @@ if run:
             global_sb_val = compute_global_score_sb(sb_df)   if not sb_df.empty else None
             global_sp_val = compute_global_score_sp(sp_result)
             global_sc_val = compute_global_score_sc(sc_df, conn_summary_df)
-            global_v3_val = compute_global_score_v3(v3_df)
+            global_v3_val = compute_global_score_v3_weighted(
+                v3_df, custom_weights,
+                global_sb_ref=global_sb_val,
+                global_sp_ref=global_sp_val,
+                global_sc_ref=global_sc_val,
+            )
             eff_weights   = get_effective_weights(v3_df)
             gbif_analysis = analyze_gbif(gbif_df)
 
@@ -689,16 +711,33 @@ conn_stats      = st.session_state["conn_stats"]
 patches_gdf     = st.session_state["patches_gdf"]
 sc_df           = st.session_state["sc_df"]
 global_sc       = st.session_state["global_sc"]
-v3_df           = st.session_state["v3_df"]
 global_sp       = st.session_state["global_sp"]
-global_v3       = st.session_state["global_v3"]
-eff_weights     = st.session_state["eff_weights"]
 gbif_file_path  = st.session_state["gbif_file_path"]
 lc_path         = st.session_state["lc_path"]
 
 has_sb   = not sb_df.empty and "score_sb_100" in sb_df.columns
 has_conn = not conn_summary_df.empty
-has_v3   = not v3_df.empty
+
+# ── Recalcul V3 en temps réel à chaque changement de pondération ────────────
+# SB / SP / SC restent en cache — seule la combinaison finale est rejouée.
+v3_df = compute_score_v3_by_habitat(
+    sb_df if has_sb else None,
+    sp_result,
+    sc_df,
+    weights=custom_weights,
+)
+# On passe les scores globaux de référence pour garantir :
+#   V3(w_sb=1) == SB affiché, V3(w_sp=1) == SP affiché, V3(w_sc=1) == SC affiché
+global_v3 = compute_global_score_v3_weighted(
+    v3_df,
+    custom_weights,
+    global_sb_ref=global_sb,
+    global_sp_ref=global_sp,
+    global_sc_ref=global_sc,
+)
+eff_weights = get_effective_weights(v3_df)
+
+has_v3 = not v3_df.empty
 
 st.success("Analyse terminee" + (" — mode demo : site La Peyruche" if st.session_state.get("is_demo") else ""))
 

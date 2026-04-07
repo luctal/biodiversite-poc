@@ -28,9 +28,9 @@ import pandas as pd
 
 # Pondérations du V3 — doivent sommer à 1.0
 WEIGHTS_V3: Dict[str, float] = {
-    "sb":   0.40,   # Score biodiversité GBIF
-    "sp":   0.35,   # Score paysage (naturalité)
-    "sc":   0.25,   # Score connectivité spatiale
+    "sb":   0.30,   # Score biodiversité GBIF
+    "sp":   0.30,   # Score paysage (naturalité)
+    "sc":   0.40,   # Score connectivité spatiale
 }
 
 # Pondérations internes du score de connectivité SC
@@ -255,7 +255,7 @@ def compute_global_score_sp(sp_result: dict) -> float:
 
 
 def compute_global_score_sc(sc_df: pd.DataFrame, conn_summary_df: pd.DataFrame) -> float:
-    """Score global SC = moyenne pondérée par surface des patches."""
+    """Score global SC = moyenne pondérée par surface des patches cœur."""
     df = sc_df.merge(
         conn_summary_df[["cover_label", "surface_totale_ha"]],
         on="cover_label", how="left",
@@ -263,6 +263,44 @@ def compute_global_score_sc(sc_df: pd.DataFrame, conn_summary_df: pd.DataFrame) 
     total = df["surface_totale_ha"].sum()
     if total == 0: return 0.0
     return float((df["score_sc"] * df["surface_totale_ha"] / total).sum() * 100)
+
+
+def compute_global_score_v3_weighted(
+    v3_df: pd.DataFrame,
+    weights: Dict[str, float],
+    global_sb_ref: Optional[float] = None,
+    global_sp_ref: Optional[float] = None,
+    global_sc_ref: Optional[float] = None,
+) -> float:
+    """
+    Score global V3 = combinaison pondérée des scores globaux SB, SP, SC.
+
+    Utilise les scores globaux de référence (ceux affichés dans les jauges)
+    pour garantir la cohérence : V3(w_sb=1) == SB, V3(w_sp=1) == SP, etc.
+
+    Si les références ne sont pas fournies, les recalcule depuis v3_df
+    (uniquement fiable pour SB dont le score_sb est absolu).
+    """
+    w_sb = weights.get("sb", 0)
+    w_sp = weights.get("sp", 0)
+    w_sc = weights.get("sc", 0)
+    total_w = w_sb + w_sp + w_sc
+    if total_w == 0:
+        return 0.0
+
+    # Utiliser les scores globaux de référence si fournis
+    gsb = float(global_sb_ref) if global_sb_ref is not None else 0.0
+    gsp = float(global_sp_ref) if global_sp_ref is not None else 0.0
+    gsc = float(global_sc_ref) if global_sc_ref is not None else 0.0
+
+    # Fallback : recalcul depuis v3_df pour SB si référence absente
+    if global_sb_ref is None and "score_sb" in v3_df.columns:
+        total = v3_df["surface_km2"].sum()
+        if total > 0:
+            w = v3_df["surface_km2"] / total
+            gsb = float((v3_df["score_sb"] * w).sum() * 100)
+
+    return (w_sb * gsb + w_sp * gsp + w_sc * gsc) / total_w
 
 
 def compute_global_score_v3(v3_df: pd.DataFrame) -> float:

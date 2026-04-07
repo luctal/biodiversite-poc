@@ -102,18 +102,61 @@ def compute_shannon_index(species_series: pd.Series) -> float:
 # CHARGEMENT
 # ============================================================================
 
+# Noms candidats pour la colonne espèce dans le CSV GBIF
+GBIF_SPECIES_COLS = ["title", "species", "scientificName", "scientific_name",
+                     "name", "taxon", "vernacularName", "label"]
+
+# Noms candidats pour la colonne date
+GBIF_DATE_COLS = ["startdate", "eventDate", "date", "observationDate", "dateIdentified"]
+
+
+def detect_species_col(df: pd.DataFrame) -> str | None:
+    """Retourne le nom de la première colonne espèce trouvée dans le DataFrame."""
+    return next((c for c in GBIF_SPECIES_COLS if c in df.columns), None)
+
+
+def detect_date_col(df: pd.DataFrame) -> str | None:
+    """Retourne le nom de la première colonne date trouvée dans le DataFrame."""
+    return next((c for c in GBIF_DATE_COLS if c in df.columns), None)
+
+
 def load_gbif_points(gbif_file: str) -> gpd.GeoDataFrame:
     """Charge le CSV GBIF → GeoDataFrame de points WGS84.
-    Colonnes requises : title, latitude, longitude."""
+
+    Colonnes requises : latitude, longitude + une colonne espèce parmi :
+    title, species, scientificName, scientific_name, name, taxon, vernacularName, label.
+    """
     df = pd.read_csv(gbif_file)
-    missing = {"title", "latitude", "longitude"} - set(df.columns)
-    if missing:
-        raise ValueError(f"Colonnes GBIF manquantes : {missing}")
+
+    # Détection flexible de la colonne espèce
+    species_col = detect_species_col(df)
+    if species_col is None:
+        raise ValueError(
+            f"Aucune colonne espèce trouvée. Colonnes testées : {GBIF_SPECIES_COLS}. "
+            f"Colonnes présentes : {list(df.columns)}"
+        )
+
+    # Colonnes de coordonnées
+    coord_missing = {"latitude", "longitude"} - set(df.columns)
+    if coord_missing:
+        raise ValueError(f"Colonnes de coordonnées manquantes : {coord_missing}")
+
+    # Normalisation — on renomme toujours en 'title' pour la suite du pipeline
+    if species_col != "title":
+        df = df.rename(columns={species_col: "title"})
+
     df["latitude"]  = pd.to_numeric(df["latitude"],  errors="coerce")
     df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
+
+    # Détection flexible de la colonne date
+    date_col = detect_date_col(df)
+    if date_col and date_col != "startdate":
+        df = df.rename(columns={date_col: "startdate"})
     if "startdate" in df.columns:
         df["startdate"] = pd.to_datetime(df["startdate"], errors="coerce")
+
     df = df.dropna(subset=["latitude", "longitude", "title"])
+
     return gpd.GeoDataFrame(
         df,
         geometry=gpd.points_from_xy(df["longitude"], df["latitude"]),
